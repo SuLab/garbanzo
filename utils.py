@@ -29,6 +29,18 @@ curie_map = {
         'formatter': 'DOID:{}',
         'reverse_formatter': lambda s: s.replace("DOID:", "")
     },
+    'OMIM': {
+        'uri': 'http://purl.obolibrary.org/obo/OMIM_',
+        'pid': 'http://www.wikidata.org/prop/P492'
+    },
+    'MESH': {
+        'uri': 'http://purl.obolibrary.org/obo/MESH_',
+        'pid': 'http://www.wikidata.org/prop/P486'
+    },
+    'UMLS': {
+        'uri': 'http://purl.obolibrary.org/obo/UMLS_',
+        'pid': 'http://www.wikidata.org/prop/P2892'
+    },
     'ECO': {
         'uri': 'http://purl.obolibrary.org/obo/ECO_',
         'pid': 'http://www.wikidata.org/prop/P3811',
@@ -46,7 +58,28 @@ curie_map = {
     'CHEBI': {
         'uri': 'http://purl.obolibrary.org/obo/CHEBI_',
         'pid': 'http://www.wikidata.org/prop/P683',
-    }
+    },
+    'DrugBank': {
+        'uri': 'http://www.drugbank.ca/drugs/',
+        'pid': 'http://www.wikidata.org/prop/P715',
+    },
+    'RXCUI': {
+        'uri': 'http://purl.bioontology.org/ontology/RXNORM/',
+        'pid': 'http://www.wikidata.org/prop/P3345',
+    },
+    'UNII': {
+        'uri': 'http://fdasis.nlm.nih.gov/srs/unii/',
+        'pid': 'http://www.wikidata.org/prop/P652',
+    },
+    # not in monarch
+    'CAS': {
+        'uri': 'http://identifiers.org/cas/',
+        'pid': 'http://www.wikidata.org/prop/P231',
+    },
+    'ChEMBL': {
+        'uri': 'http://identifiers.org/chembl.compound/',
+        'pid': 'http://www.wikidata.org/prop/P592',
+    },
 }
 
 class CurieUtil(object):
