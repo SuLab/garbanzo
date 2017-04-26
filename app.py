@@ -10,7 +10,7 @@ from utils import CurieUtil, curie_map, execute_sparql_query
 from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesExternalIdClaims, getEntitiesCurieClaims
 
 app = Flask(__name__)
-api = Api(app, version='1.0', title='Translatizer API', description='A simple API')
+api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator')
 translator_ns = api.namespace('translator')
 ns = api.namespace('default')
 
@@ -55,7 +55,7 @@ search_result = api.model("search_result", {
     "pageSize": fields.Integer(required=True,
                                description="number of concepts per page to be returned in a paged set of query results",
                                example=10),
-    "totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
+    #"totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
     "dataPage": fields.List(fields.Nested(concept))
 })
 
@@ -67,14 +67,15 @@ search_result = api.model("search_result", {
 @translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results', default=1)
 @translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results', default=10)
 class GetConcepts(Resource):
-    # @api.marshal_with(search_result)
+    @api.marshal_with(search_result)
     def get(self):
         """
         Retrieves a (paged) list of concepts in Wikidata
         """
         q = request.args['q']
         search = ' '.join(q.split(","))
-        types = request.args.get('types')
+        types = request.args.get('types', None)
+        types = types.split(",") if types else []
         pageNumber = int(request.args.get('pageNumber', 1))
         pageSize = int(request.args.get('pageSize', 10))
 
@@ -104,7 +105,7 @@ class GetConcepts(Resource):
 
         return {
             'pageNumber': pageNumber,
-            'totalEntries': None,
+            #'totalEntries': None,
             'keywords': q.split(","),
             'pageSize': pageSize,
             'dataPage': dataPage,
@@ -132,7 +133,7 @@ class GetConcept(Resource):
     #@api.marshal_with(concept)
     def get(self, conceptId):
         """
-        Retrieves details for a specified concept in Wikidata
+        Retrieves identifiers that are specified as "external-ids" with the associated input identifier
         """
         if conceptId.startswith("wd:"):
             qids = [conceptId]
