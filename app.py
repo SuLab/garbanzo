@@ -1,16 +1,12 @@
-"""
-
-"""
-
 from flask import Flask, request, jsonify
 from flask_restplus import Api, Resource, fields
 import requests
-from itertools import chain
 from utils import CurieUtil, curie_map, execute_sparql_query
-from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesExternalIdClaims, getEntitiesCurieClaims
+from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClaims
 
 app = Flask(__name__)
-api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator')
+api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator',
+          contact_url="https://github.com/stuppie/garbanzo", contact="gstupp")
 translator_ns = api.namespace('translator')
 ns = api.namespace('default')
 
@@ -55,17 +51,19 @@ search_result = api.model("search_result", {
     "pageSize": fields.Integer(required=True,
                                description="number of concepts per page to be returned in a paged set of query results",
                                example=10),
-    #"totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
+    # "totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
     "dataPage": fields.List(fields.Nested(concept))
 })
 
 
 @translator_ns.route('/concepts')
 @translator_ns.param('q', 'array of keywords or substrings against which to match concept names and synonyms',
-          default=['night', 'blindness'])
+                     default=['night', 'blindness'])
 @translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
-@translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results', default=1)
-@translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results', default=10)
+@translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
+                     default=1)
+@translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
+                     default=10)
 class GetConcepts(Resource):
     @api.marshal_with(search_result)
     def get(self):
@@ -105,12 +103,13 @@ class GetConcepts(Resource):
 
         return {
             'pageNumber': pageNumber,
-            #'totalEntries': None,
+            # 'totalEntries': None,
             'keywords': q.split(","),
             'pageSize': pageSize,
             'dataPage': dataPage,
             "types": types,
         }
+
 
 ##########
 # exactmatches
@@ -130,7 +129,8 @@ match_model = api.model('match_model', {
 @translator_ns.route('/exactMatches/<conceptId>')
 @translator_ns.param('conceptId', 'entity curie', default="MESH:D009755")
 class GetConcept(Resource):
-    #@api.marshal_with(concept)
+    # @api.marshal_with(concept)
+    @api.doc(description="Return format not complete")
     def get(self, conceptId):
         """
         Retrieves identifiers that are specified as "external-ids" with the associated input identifier
@@ -140,10 +140,7 @@ class GetConcept(Resource):
         else:
             qids = get_equiv_item(conceptId)
         claims = getEntitiesCurieClaims(qids)
-        return {k:[claim.to_dict() for claim in v] for k,v in claims.items()}
-
-
-
+        return {k: [claim.to_dict() for claim in v] for k, v in claims.items()}
 
 
 prop = api.model('prop', {
