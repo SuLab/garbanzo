@@ -1,8 +1,41 @@
-
+"""
 # curie to wd map
 # monarch: https://github.com/monarch-initiative/dipper/blob/master/dipper/curie_map.yaml
 # 'NCBITaxon' : 'http://purl.obolibrary.org/obo/NCBITaxon_'
+
+provenence map: https://github.com/monarch-initiative/dipper/blob/master/dipper/models/Provenance.py
+
+"""
 import requests
+
+
+# if an item is "instance of" this item, this is its type. Can be multiple types
+# https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
+class Typer:
+    type_map = {
+        'http://www.wikidata.org/entity/Q12136': {'name': 'disease', 'uri': 'http://purl.obolibrary.org/obo/DOID_4'},
+        'http://www.wikidata.org/entity/Q7187': {'name': 'gene', 'uri': 'http://purl.obolibrary.org/obo/SO_0000704'},
+        'http://www.wikidata.org/entity/Q8054': {'name': 'protein', 'uri': ''},
+        'http://www.wikidata.org/entity/Q37748': {'name': 'chromosome',
+                                                  'uri': 'http://purl.obolibrary.org/obo/SO_0000340'},
+        'http://www.wikidata.org/entity/Q11173': {'name': 'chemical compound', 'uri': ''},
+        'http://www.wikidata.org/entity/Q12140': {'name': 'pharmaceutical drug',
+                                                  'uri': 'http://purl.obolibrary.org/obo/CHEBI_23888'},
+        'http://www.wikidata.org/entity/Q417841': {'name': 'protein family', 'uri': ''},
+        'http://www.wikidata.org/entity/Q898273': {'name': 'protein domain', 'uri': ''},
+        }
+
+    def get_type(self, uri):
+        if '/' not in uri:
+            uri = 'http://www.wikidata.org/entity/' + uri
+        return self.type_map.get(uri)
+
+
+relationship_map = {'http://www.wikidata.org/prop/P2176': {'name': 'drug used for treatment',
+                                                           'uri': 'RO:0002302'},
+                    'http://www.wikidata.org/prop/P248': {'name': 'stated in',
+                                                           'uri': 'oban:has_source'},
+                    }
 
 curie_map = {
     # formatter: curie value to wikidata value
@@ -79,15 +112,24 @@ curie_map = {
     'ChEMBL': {
         'uri': 'http://identifiers.org/chembl.compound/',
         'pid': 'http://www.wikidata.org/prop/P592',
+        'formatter': "{}",
+        'reverse_formatter': lambda s: s.replace("CHEMBL", ''),
     },
+    'wd': {
+        'uri': 'http://www.wikidata.org/entity/',
+        'pid': 'http://www.wikidata.org/entity/',
+    }
 }
+prop_curie = {v['pid']: k for k, v in curie_map.items()}
+
 
 class CurieUtil(object):
     """
 
     """
+
     def __init__(self, curie_map):
-        for k,v in curie_map.items():
+        for k, v in curie_map.items():
             if 'formatter' not in v:
                 v['formatter'] = '{}'
             if 'reverse_formatter' not in v:
@@ -138,7 +180,6 @@ class CurieUtil(object):
         elif hasattr(cm['reverse_formatter'], '__call__'):
             curie_value = cm['reverse_formatter'](value)
         return ns + ':' + curie_value
-
 
 def execute_sparql_query(query, prefix=None, endpoint='https://query.wikidata.org/sparql',
                          user_agent='tmp: github.com/SuLab/tmp'):
