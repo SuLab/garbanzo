@@ -115,6 +115,14 @@ curie_map = {
         'formatter': "{}",
         'reverse_formatter': lambda s: s.replace("CHEMBL", ''),
     },
+    'ICD9': {
+        'uri': '',
+        'pid': 'http://www.wikidata.org/prop/P493',
+    },
+    'ICD10': {
+        'uri': '',
+        'pid': 'http://www.wikidata.org/prop/P494',
+    },
     'wd': {
         'uri': 'http://www.wikidata.org/entity/',
         'pid': 'http://www.wikidata.org/entity/',

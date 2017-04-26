@@ -1,27 +1,22 @@
 """
 
-# start with entrez ids, get direct xrefs
-http://localhost:5000/suggest_item_externalids?from_prop=P351&from_ids=3949,59340,181,472
-
-# start with entrez ids, get related items
-http://localhost:5000/suggest_item_props?from_prop=P351&from_ids=3949,59340,181,472
-
-
-# one hop
-http://localhost:5000/query_one_hop?from_prop=P351&to_prop=P352&from_ids=1107,1017,12345,123&related_prop=P688
-
 """
 
 from flask import Flask, request, jsonify
-from flask_restplus import Api, Resource, fields, reqparse
+from flask_restplus import Api, Resource, fields
 import requests
 from itertools import chain
 from utils import CurieUtil, curie_map, execute_sparql_query
-from lookup import getConcept, getConcepts
+from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesExternalIdClaims, getEntitiesCurieClaims
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Translatizer API', description='A simple API')
-ns = api.namespace('wikidata')
+translator_ns = api.namespace('translator')
+ns = api.namespace('default')
+
+##########
+# Concepts
+##########
 
 id_label = api.model("id_label", {
     'id': fields.String(required=True, description="identifier", example="wd:Q7187"),
@@ -38,10 +33,9 @@ concept = api.model('concept', {
 })
 
 
-@ns.route('/concepts/<conceptId>')
-@ns.param('conceptId', 'Wikidata entity curie', default="wd:Q18557952")
+@translator_ns.route('/concepts/<conceptId>')
+@translator_ns.param('conceptId', 'Wikidata entity curie', default="wd:Q18557952")
 class GetConcept(Resource):
-    # @ns.doc("Do something")
     @api.marshal_with(concept)
     def get(self, conceptId):
         """
@@ -53,7 +47,8 @@ class GetConcept(Resource):
 search_result = api.model("search_result", {
     "keywords": fields.List(fields.String(), required=True, description="keywords that were searched",
                             example=['hereditary', 'blindness']),
-    "types": fields.List(fields.String(), required=False, description="constrain search by type", example=["wd:Q12136"]),
+    "types": fields.List(fields.String(), required=False, description="constrain search by type",
+                         example=["wd:Q12136"]),
     "pageNumber": fields.Integer(required=True,
                                  description="(1-based) number of the page to be returned in a paged set of query results",
                                  example=1),
@@ -65,14 +60,14 @@ search_result = api.model("search_result", {
 })
 
 
-@ns.route('/concepts')
-@ns.param('q', 'array of keywords or substrings against which to match concept names and synonyms',
+@translator_ns.route('/concepts')
+@translator_ns.param('q', 'array of keywords or substrings against which to match concept names and synonyms',
           default=['night', 'blindness'])
-@ns.param('types', 'constrain search by type', default=['wd:Q12136'])
-@ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results', default=1)
-@ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results', default=10)
+@translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
+@translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results', default=1)
+@translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results', default=10)
 class GetConcepts(Resource):
-    #@api.marshal_with(search_result)
+    # @api.marshal_with(search_result)
     def get(self):
         """
         Retrieves a (paged) list of concepts in Wikidata
@@ -89,7 +84,7 @@ class GetConcepts(Resource):
                   'type': "item",
                   'format': 'json',
                   'limit': pageSize,
-                  'continue': (pageNumber-1)*pageSize}
+                  'continue': (pageNumber - 1) * pageSize}
         print(params)
         r = requests.get("https://www.wikidata.org/w/api.php", params=params)
         r.raise_for_status()
@@ -116,6 +111,40 @@ class GetConcepts(Resource):
             "types": types,
         }
 
+##########
+# exactmatches
+##########
+
+
+id_model = api.model("id_model", {
+    'id': fields.String(required=True, description="identifier", example="wd:Q7758678"),
+})
+
+match_model = api.model('match_model', {
+    'id': fields.String(required=True, description="identifier", example="MESH:D009755"),
+    'exactmatches': fields.List(fields.Nested(id_model), required=False, description="matches"),
+})
+
+
+@translator_ns.route('/exactMatches/<conceptId>')
+@translator_ns.param('conceptId', 'entity curie', default="MESH:D009755")
+class GetConcept(Resource):
+    #@api.marshal_with(concept)
+    def get(self, conceptId):
+        """
+        Retrieves details for a specified concept in Wikidata
+        """
+        if conceptId.startswith("wd:"):
+            qids = [conceptId]
+        else:
+            qids = get_equiv_item(conceptId)
+        claims = getEntitiesCurieClaims(qids)
+        return {k:[claim.to_dict() for claim in v] for k,v in claims.items()}
+
+
+
+
+
 prop = api.model('prop', {
     'count': fields.Integer(min=0, readOnly=True, description='count', example=7),
     'property': fields.String(required=True, description='pid', example="P704"),
@@ -138,35 +167,16 @@ item_mapping_result = api.model("item_mapping_result", {
 cu = CurieUtil(curie_map)
 
 
-def get_equiv_item(curie):
-    """
-    From a curie, get the wikidata item
-    # this one has two wikidata id because someone fucked up
-    get_equiv_item("PMID:10028264")
-    :param curie:
-    :return:
-    """
-    pid, value = cu.parse_curie(curie)
-    prop_direct = "<http://www.wikidata.org/prop/direct/{}>".format(pid.split("/")[-1])
-    query_str = "SELECT ?item WHERE {{ ?item {} '{}' }}".format(prop_direct, value)
-    d = execute_sparql_query(query_str)['results']['bindings']
-    equiv_qids = list(set(chain(*[{v['value'] for k, v in x.items()} for x in d])))
-    return {curie: equiv_qids}
-
-
 @ns.route('/getEquivalentWikidataItem')
 @api.doc(description="Return the Wikidata item(s) for a given CURIE")
 @ns.param('curie', 'Curie to search for. (e.g. PMID:1234, DOID:1432)', default="PMID:1234", required=True)
-@ns.param('returnReferences', '(bool) return references. Requires an extra query. NOT IMPLEMENTED', default=False)
 class getEquivalentWikidataItem(Resource):
     # @api.doc(description="this is more description")
     def get(self):
         """docstring"""
         curie = request.args.get("curie", "PMID:1234")
-        returnReferences = request.args.get("returnReferences", False)
         equiv_items = get_equiv_item(curie)
-        if not returnReferences:
-            return equiv_items
+        return equiv_items
 
 
 def get_equivalent_class(curie, to_ns):
