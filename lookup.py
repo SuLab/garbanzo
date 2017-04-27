@@ -24,7 +24,8 @@ example_claim = {'datatype': 'external-id',
 
 
 class Claim:
-    def __init__(self, id=None, datatype=None, rank=None, property=None, datavalue=None, datavaluetype=None, references=None, qualifiers=None):
+    def __init__(self, id=None, datatype=None, rank=None, property=None, datavalue=None, datavaluetype=None,
+                 references=None, qualifiers=None):
         self.datatype = datatype
         self.datavalue = datavalue
         self.datavaluetype = datavaluetype
@@ -37,15 +38,16 @@ class Claim:
 
     def to_dict(self):
         d = {'datatype': self.datatype,
-                'datavalue': self.datavalue,
-                'datavaluetype': self.datavaluetype,
-                'property': self.property,
-                'id': self.id,
-                'rank': self.rank,
-                'references': [[ref.to_dict() for ref in refblock] for refblock in self.references] if self.references else None,
-                'qualifiers': [qual.to_dict() for qual in self.qualifiers] if self.qualifiers else None,
-                'datavaluecurie': self.datavaluecurie
-                }
+             'datavalue': self.datavalue,
+             'datavaluetype': self.datavaluetype,
+             'property': self.property,
+             'id': self.id,
+             'rank': self.rank,
+             'references': [[ref.to_dict() for ref in refblock] for refblock in
+                            self.references] if self.references else None,
+             'qualifiers': [qual.to_dict() for qual in self.qualifiers] if self.qualifiers else None,
+             'datavaluecurie': self.datavaluecurie
+             }
         d = {k: v for k, v in d.items() if v is not None}
         return d
 
@@ -96,7 +98,6 @@ def parse_claims(wdclaims):
     return claims
 
 
-
 def add_prop_uri(claims):
     for claim in claims:
         prop_uri = 'http://www.wikidata.org/prop/' + claim['property']
@@ -143,6 +144,7 @@ def getEntitiesExternalIdClaims(qids):
 
     return externalidclaims
 
+
 def getEntitiesCurieClaims(qids):
     externalidclaims = getEntitiesExternalIdClaims(qids)
     for qid in externalidclaims:
@@ -154,6 +156,7 @@ def getEntitiesCurieClaims(qids):
             claim.datatype = None
 
     return externalidclaims
+
 
 def get_types(claims):
     typer = Typer()
@@ -230,3 +233,58 @@ def get_equiv_item(curie):
     equiv_qids = list(set(chain(*[{v['value'] for k, v in x.items()} for x in d])))
     equiv_qids = ["wd:" + x.replace("http://www.wikidata.org/entity/", "") for x in equiv_qids]
     return equiv_qids
+
+
+"""
+Turn a list of claims into triple format:
+
+
+"""
+example_claim = {'id': 'Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29',
+                 'rank': 'normal',
+                 'property': 'P279',
+                 'datavalue': 'Q550455',
+                 'datavaluetype': 'wikibase-entityid',
+                 'references': [[
+                     {
+                         'datavalue': 'Q28556593',
+                         'datavaluetype': 'wikibase-entityid',
+                         'property': 'P248',
+                         'datatype': 'wikibase-item'},
+                     {
+                         'datavalue': '+2017-01-31T00:00:00Z',
+                         'datavaluetype': 'time',
+                         'property': 'P813',
+                         'datatype': 'time'},
+                     {
+                         'datavalue': 'DOID:8499',
+                         'datavaluetype': 'string',
+                         'property': 'P699',
+                         'datatype': 'external-id'}]],
+                 'datatype': 'wikibase-item'}
+
+example_triple = {"source": "wikidata",
+                  "id": "Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29",
+                  "subject": {"id": "wd:Q7758678",
+                              "name": "night blindness"},
+                  "predicate": {"id": "wd:P279",
+                                "name": "subclass of",
+                                "equivalentProperty": ["http://www.w3.org/2000/01/rdf-schema#subClassOf"]},
+                  "object": {"id": "wd:Q550455",
+                             "name": "retinal disease"},
+                  "evidence": [
+                      {
+                          'value': {'id': 'wd:Q28556593', 'name': 'Disease Ontology release 2017-01-27'},
+                          'predicate': {'id': 'wd:P248', 'name': 'stated in', 'equivalentProperty': []}
+                      },
+                      {
+                          'value': {'datavalue': '+2017-01-31T00:00:00Z', 'datavaluetype': 'time'},
+                          'predicate': {'id': 'wd:P813', 'name': 'retrieved', 'equivalentProperty': []}
+                      },
+                      {
+                          'value': {'datavalue': 'DOID:8499', 'datavaluetype': 'string'},
+                          'predicate': {'id': 'wd:P699', 'name': 'Disease Ontology ID', 'equivalentProperty':
+                              ['http://identifiers.org/doid/', 'http://purl.obolibrary.org/obo/DOID']}
+                      },
+                  ]
+                  }
