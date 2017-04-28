@@ -196,24 +196,25 @@ def getConcepts(qids):
     for qid, wd in entities.items():
         d = dict()
         d['id'] = 'wd:{}'.format(wd['id'])
-        d['label'] = wd['labels']['en']['value']
-        d['description'] = wd['descriptions']['en']['value']
-        if 'aliases' in wd and 'en' in wd['aliases']:
-            d['aliases'] = [x['value'] for x in wd['aliases']['en']]
+        d['label'] = wd['labels']['en']['value'] if 'en' in wd['labels'] else ''
+        d['description'] = wd['descriptions']['en']['value'] if 'en' in wd['descriptions'] else ''
+        d['aliases'] = [x['value'] for x in wd['aliases']['en']] if 'aliases' in wd and 'en' in wd['aliases'] else []
         if 'P31' in wd['claims']:
             instances = [x['mainsnak']['datavalue']['value']['id'] for x in wd['claims']['P31']]
             d['types'] = [{'id': "wd:" + instance_qid} for instance_qid in instances]
+        else:
+            d['types'] = []
         dd["wd:" + qid] = d
 
     # add labels to the types. Do it in one API call
     types = set()
     for value in dd.values():
-        if 'types' in value:
+        if 'types' in value and value['types']:
             types.update({x['id'] for x in value['types']})
     if types:
         typed = getConceptLabels(tuple(types))
         for value in dd.values():
-            if 'types' in value:
+            if 'types' in value and value['types']:
                 value['types'] = [{'id': x['id'], 'label': typed[x['id'].replace("wd:", "")]} for x in value['types']]
     return dd
 

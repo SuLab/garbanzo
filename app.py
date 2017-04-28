@@ -71,7 +71,7 @@ class GetConcepts(Resource):
         Retrieves a (paged) list of concepts in Wikidata
         """
         q = request.args['q']
-        search = ' '.join(q.split(","))
+        search = ' '.join([x.strip() for x in q.split(",")])
         types = request.args.get('types', None)
         types = types.split(",") if types else []
         pageNumber = int(request.args.get('pageNumber', 1))
@@ -88,23 +88,22 @@ class GetConcepts(Resource):
         r = requests.get("https://www.wikidata.org/w/api.php", params=params)
         r.raise_for_status()
         d = r.json()
-        print(d)
         dataPage = d['search']
         for item in dataPage:
             item['id'] = "wd:" + item['id']
             del item['repository']
             del item['concepturi']
         items = [x['id'] for x in dataPage]
-        print(items)
+        print("items: {}".format(items))
         dataPage = list(getConcepts(tuple(items)).values())
 
         if types:
-            dataPage = [item for item in dataPage if any(t['id'] in types for t in item['types'])]
+            dataPage = [item for item in dataPage if 'types' in item and item['types'] and (any(t['id'] in types for t in item['types']))]
 
         return {
             'pageNumber': pageNumber,
             # 'totalEntries': None,
-            'keywords': q.split(","),
+            'keywords': [x.strip() for x in q.split(",")],
             'pageSize': pageSize,
             'dataPage': dataPage,
             "types": types,
