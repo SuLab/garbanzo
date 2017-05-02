@@ -1,6 +1,7 @@
 from itertools import chain
 
 from flask import Flask, request, jsonify
+from flask_restplus import abort
 from flask_restplus import Api, Resource, fields
 import requests
 from utils import CurieUtil, curie_map, execute_sparql_query
@@ -130,22 +131,30 @@ match_model = api.model('match_model', {
 })
 
 
-@translator_ns.route('/exactMatches/<conceptId>')
-@translator_ns.param('conceptId', 'entity curie', default="MESH:D009755")
+@translator_ns.route('/exactMatches/')
+@translator_ns.param('conceptId', 'a (urlencoded) space-delimited set of CURIE-encoded identifiers of exactly '
+                                  'matching concepts, to be used in a search for additional exactly matching concepts',
+                     default="MESH:D009755", required=True)
 class GetConcept(Resource):
-    # @api.marshal_with(concept)
+    @api.marshal_with(match_model)
     @api.doc(
-        description="Given an input CURIE, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
+        description="Given an list of input CURIEs, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
                     "This new list of concept identifiers is returned with the full list of any additional identifiers deemed by the KS to also be "
                     "identifying exactly matched concepts.")
-    def get(self, conceptId):
+    def get(self):
         """
-        Retrieves identifiers that are specified as "external-ids" with the associated input identifier
+        Retrieves identifiers that are specified as "external-ids" with the associated input identifiers
         """
-        if conceptId.startswith("wd:"):
-            qids = [conceptId]
-        else:
-            qids = get_equiv_item(conceptId)
+        concepts = request.args.get("conceptId", '')
+        qids = []
+        for c in concepts.split():
+            if c.startswith("wd:"):
+                qids.append(c)
+            else:
+                try:
+                    qids.extend(get_equiv_item(c))
+                except ValueError as e:
+                    abort(message=str(e))
         claims = getEntitiesCurieClaims(qids)
         claims = list(chain(*claims.values()))
         claims = [claim.to_dict() for claim in claims]
@@ -154,7 +163,7 @@ class GetConcept(Resource):
             claim['id'] = claim['datavaluecurie']
             del claim['datavaluecurie']
             del claim['references']
-        r = {'id': conceptId, 'exactmatches': claims}
+        r = {'id': concepts, 'exactmatches': claims}
         return r
 
 
