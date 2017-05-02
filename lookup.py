@@ -75,6 +75,11 @@ def parse_snak(snak):
         claim.datavalue = snak['datavalue']['value']['id']
     elif snak['datavalue']['type'] == 'time':
         claim.datavalue = snak['datavalue']['value']['time']
+    elif snak['datavalue']['type'] == 'monolingualtext':
+        claim.datavalue = snak['datavalue']['value']['text']
+    elif snak['datavalue']['type'] == "quantity":
+        claim.datavalue = snak['datavalue']['value']['amount']
+        print("Warning: {}".format(snak['datavalue']))
     else:
         raise ValueError(snak['datavalue'])
 
@@ -234,6 +239,80 @@ def get_equiv_item(curie):
     equiv_qids = list(set(chain(*[{v['value'] for k, v in x.items()} for x in d])))
     equiv_qids = ["wd:" + x.replace("http://www.wikidata.org/entity/", "") for x in equiv_qids]
     return equiv_qids
+
+
+def get_reverse_items(qids):
+    """
+    Get a items where the input qids are used as the object
+    :param qids: list of qids (e.g. ('Q133696', 'Q18557952'))
+    :return: list of
+     {'id': 'Q26738259-2f0e5941-494d-ba20-1233-e03023321846',
+      'item': 'wd:Q26738259',
+      'itemLabel': 'congenital color blindness',
+      'property': 'wd:P279',
+      'propertyLabel': 'subclass of',
+      'value': 'wd:Q133696',
+      'valueLabel': 'color blindness'}
+    """
+    #qids = ('Q133696', 'Q18557952')
+    values = " ".join(["wd:" + qid for qid in qids])
+    query_str = """
+    SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
+    WHERE {
+      values ?value {{values}}
+      ?item ?propertyclaim ?id .
+      ?property wikibase:propertyType wikibase:WikibaseItem .
+      ?property wikibase:claim ?propertyclaim .
+      ?id ?b ?value .
+      FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+    }""".replace("{values}", values)
+    d = execute_sparql_query(query_str)['results']['bindings']
+    results = [{k:v['value'] for k,v in item.items()} for item in d]
+    for result in results:
+        result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
+    return results
+
+
+def get_forward_items(qids):
+    """
+    Get a items where the input qids are used as the subject
+    :param qids: list of qids (e.g. ('Q133696', 'Q18557952'))
+    :return: list of
+     {'id': 'Q26738259-2f0e5941-494d-ba20-1233-e03023321846',
+      'item': 'wd:Q26738259',
+      'itemLabel': 'congenital color blindness',
+      'property': 'wd:P279',
+      'propertyLabel': 'subclass of',
+      'value': 'wd:Q133696',
+      'valueLabel': 'color blindness'}
+    """
+    #qids = ('Q133696', 'Q18557952')
+    values = " ".join(["wd:" + qid for qid in qids])
+    query_str = """
+    SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
+    WHERE {
+      values ?item {{values}}
+      ?item ?propertyclaim ?id .
+      ?property wikibase:propertyType wikibase:WikibaseItem .
+      ?property wikibase:claim ?propertyclaim .
+      ?id ?b ?value .
+      FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+    }""".replace("{values}", values)
+    d = execute_sparql_query(query_str)['results']['bindings']
+    results = [{k:v['value'] for k,v in item.items()} for item in d]
+    for result in results:
+        result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
+    return results
+
+
 
 
 """

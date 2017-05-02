@@ -1,8 +1,11 @@
+from itertools import chain
+
 from flask import Flask, request, jsonify
 from flask_restplus import Api, Resource, fields
 import requests
 from utils import CurieUtil, curie_map, execute_sparql_query
-from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClaims
+from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClaims, getEntities, getEntitiesClaims, \
+    get_forward_items, get_reverse_items
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator',
@@ -45,12 +48,8 @@ search_result = api.model("search_result", {
                             example=['hereditary', 'blindness']),
     "types": fields.List(fields.String(), required=False, description="constrain search by type",
                          example=["wd:Q12136"]),
-    "pageNumber": fields.Integer(required=True,
-                                 description="(1-based) number of the page to be returned in a paged set of query results",
-                                 example=1),
-    "pageSize": fields.Integer(required=True,
-                               description="number of concepts per page to be returned in a paged set of query results",
-                               example=10),
+    "pageNumber": fields.Integer(required=True, description="(1-based) number of the page returned", example=1, type=int),
+    "pageSize": fields.Integer(required=True, description="number of concepts per page", example=10, type=int),
     # "totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
     "dataPage": fields.List(fields.Nested(concept))
 })
@@ -61,9 +60,9 @@ search_result = api.model("search_result", {
                      default=['night', 'blindness'])
 @translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
 @translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
-                     default=1)
+                     default=1, type=int)
 @translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
-                     default=10)
+                     default=10, type=int)
 class GetConcepts(Resource):
     @api.marshal_with(search_result)
     def get(self):
@@ -98,7 +97,8 @@ class GetConcepts(Resource):
         dataPage = list(getConcepts(tuple(items)).values())
 
         if types:
-            dataPage = [item for item in dataPage if 'types' in item and item['types'] and (any(t['id'] in types for t in item['types']))]
+            dataPage = [item for item in dataPage if
+                        'types' in item and item['types'] and (any(t['id'] in types for t in item['types']))]
 
         return {
             'pageNumber': pageNumber,
@@ -114,13 +114,18 @@ class GetConcepts(Resource):
 # exactmatches
 ##########
 
+evidence_model = api.model("evidence_model", {
+    'id': fields.String(description="local identifier to evidence record",
+                        example='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'),
+})
 
 id_model = api.model("id_model", {
-    'id': fields.String(required=True, description="identifier", example="wd:Q7758678"),
+    'id': fields.String(required=True, description="identifier", example="DOID:8499"),
+    'evidence': fields.Nested(evidence_model),
 })
 
 match_model = api.model('match_model', {
-    'id': fields.String(required=True, description="identifier", example="MESH:D009755"),
+    'id': fields.String(required=True, description="identifier that was searched for", example="MESH:D009755"),
     'exactmatches': fields.List(fields.Nested(id_model), required=False, description="matches"),
 })
 
@@ -129,7 +134,10 @@ match_model = api.model('match_model', {
 @translator_ns.param('conceptId', 'entity curie', default="MESH:D009755")
 class GetConcept(Resource):
     # @api.marshal_with(concept)
-    @api.doc(description="Return format not complete")
+    @api.doc(
+        description="Given an input CURIE, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
+                    "This new list of concept identifiers is returned with the full list of any additional identifiers deemed by the KS to also be "
+                    "identifying exactly matched concepts.")
     def get(self, conceptId):
         """
         Retrieves identifiers that are specified as "external-ids" with the associated input identifier
@@ -139,7 +147,93 @@ class GetConcept(Resource):
         else:
             qids = get_equiv_item(conceptId)
         claims = getEntitiesCurieClaims(qids)
-        return {k: [claim.to_dict() for claim in v] for k, v in claims.items()}
+        claims = list(chain(*claims.values()))
+        claims = [claim.to_dict() for claim in claims]
+        for claim in claims:
+            claim['evidence'] = {'id': claim['id']}
+            claim['id'] = claim['datavaluecurie']
+            del claim['datavaluecurie']
+            del claim['references']
+        r = {'id': conceptId, 'exactmatches': claims}
+        return r
+
+
+##########
+# statements
+##########
+
+
+evidence_model = api.model("evidence_model", {
+    'id': fields.String(description="local identifier to evidence record",
+                        example='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29', required=True),
+    # I don't know what 'count' is for
+})
+
+object_model = api.model("object_model", {
+    'id': fields.String(description="CURIE-encoded local identifier", example='', required=True),
+    'name': fields.String(description="human readable label of concept", example=''),
+})
+
+datapage_model = api.model("datapage_model", {
+    'id': fields.String(description="local statement identifier", example='', required=True),
+    'evidence': fields.Nested(evidence_model, required=True),
+    'subject': fields.Nested(object_model, required=True),
+    'object': fields.Nested(object_model, required=True),
+    'predicate': fields.Nested(object_model, required=True),
+
+})
+
+response_model = api.model("response_model", {
+    'keywords': fields.List(fields.String(), description="see input args", required=True),
+    'semanticGroups': fields.List(fields.String(), description="see input args", required=True),
+    'pageNumber': fields.Integer(required=True, description="(1-based) number of the page returned", example=1, type=int),
+    "pageSize": fields.Integer(required=True, description="number of concepts per page", example=10, type=int),
+    "totalEntries": fields.Integer(required=True, description="total number of concepts", example=100, type=int),
+    "dataPage": fields.List(fields.Nested(datapage_model), required=True)
+})
+
+
+
+@translator_ns.route('/statements')
+@translator_ns.param('emci', 'a (urlencoded) space-delimited set of CURIE-encoded identifiers of exactly matching '
+                             'concepts to be used in a search for associated concept-relation statements',
+                     default="wd:Q133696", required=True)
+@translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
+@translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
+                     default=1, type=int)
+@translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
+                     default=10, type=int)
+@translator_ns.param('keywords', 'a (urlencoded) space delimited set of keywords or substrings against which to apply '
+                                 'against the subject, predicate or object names of the set of concept-relations matched '
+                                 'by any of the input exact matching concepts')
+class GetStatements(Resource):
+    @api.marshal_with(response_model)
+    @api.doc(
+        description="Given an input CURIE, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
+                    "This new list of concept identifiers is returned with the full list of any additional identifiers deemed by the KS to also be "
+                    "identifying exactly matched concepts.")
+    def get(self):
+        """
+        Get statements
+        """
+        qids = request.args['emci']
+        qids = tuple([x.strip().replace("wd:", "") for x in qids.split()])
+        items = get_forward_items(qids) + get_reverse_items(qids)
+
+        datapage = [{'id': item['id'],
+                     'subject': {'id': item['item'], 'name': item['itemLabel']},
+                     'predicate': {'id': item['property'], 'name': item['propertyLabel']},
+                     'object': {'id': item['value'], 'name': item['valueLabel']},
+                     'evidence': {'id': item['id']}
+                     } for item in items]
+
+
+
+        return {'keywords': [], 'semanticGroups': [], 'dataPage': datapage}
+
+
+
+
 
 
 prop = api.model('prop', {
