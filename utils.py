@@ -9,33 +9,56 @@ provenence map: https://github.com/monarch-initiative/dipper/blob/master/dipper/
 import requests
 
 
-# if an item is "instance of" this item, this is its type. Can be multiple types
-# https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
+def always_curie(s):
+    assert s.startswith("Q") or s.startswith("wd:")
+    return "wd:" + s if s.startswith("Q") else s
+
+def always_qid(s):
+    assert s.startswith("Q") or s.startswith("wd:")
+    return s.replace("wd:", "") if s.startswith("wd:") else s
+
+# if an item is "instance of" this item, this is its type
+# https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt
+# For futrue reference : https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
 class Typer:
-    type_map = {
-        'http://www.wikidata.org/entity/Q12136': {'name': 'disease', 'uri': 'http://purl.obolibrary.org/obo/DOID_4'},
-        'http://www.wikidata.org/entity/Q7187': {'name': 'gene', 'uri': 'http://purl.obolibrary.org/obo/SO_0000704'},
-        'http://www.wikidata.org/entity/Q8054': {'name': 'protein', 'uri': ''},
-        'http://www.wikidata.org/entity/Q37748': {'name': 'chromosome',
-                                                  'uri': 'http://purl.obolibrary.org/obo/SO_0000340'},
-        'http://www.wikidata.org/entity/Q11173': {'name': 'chemical compound', 'uri': ''},
-        'http://www.wikidata.org/entity/Q12140': {'name': 'pharmaceutical drug',
-                                                  'uri': 'http://purl.obolibrary.org/obo/CHEBI_23888'},
-        'http://www.wikidata.org/entity/Q417841': {'name': 'protein family', 'uri': ''},
-        'http://www.wikidata.org/entity/Q898273': {'name': 'protein domain', 'uri': ''},
+    qid_type = {
+        # disease
+        'Q12136': 'DISO',
+        # gene
+        'Q7187': 'GENE',
+        # protein
+        #'http://www.wikidata.org/entity/Q8054': '',
+        # chromosome
+        #'http://www.wikidata.org/entity/Q37748': '',
+        # chemical compound
+        'Q11173': 'CHEM',
+        # pharmaceutical drug
+        'Q12140': 'CHEM',
+        # protein family
+        #'http://www.wikidata.org/entity/Q417841': '',
+        # protein domain
+        #'http://www.wikidata.org/entity/Q898273': '',
+        # human
+        'Q5': 'LIVB',
+        # BP
+        'Q2996394': 'PHYS',
+        # MF
+        'Q14860489': 'PHYS',
+        # CC
+        'Q5058355': 'PHYS',
         }
 
-    def get_type(self, uri):
-        if '/' not in uri:
-            uri = 'http://www.wikidata.org/entity/' + uri
-        return self.type_map.get(uri)
+    def get_type(self, qid):
+        return self.qid_type.get(qid)
 
-
+### not used for anything
+"""
 relationship_map = {'http://www.wikidata.org/prop/P2176': {'name': 'drug used for treatment',
                                                            'uri': 'RO:0002302'},
                     'http://www.wikidata.org/prop/P248': {'name': 'stated in',
                                                            'uri': 'oban:has_source'},
                     }
+"""
 
 curie_map = {
     # formatter: curie value to wikidata value

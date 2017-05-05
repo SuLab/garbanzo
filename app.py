@@ -6,7 +6,7 @@ from flask_restplus import Api, Resource, fields
 import requests
 from utils import CurieUtil, curie_map, execute_sparql_query
 from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClaims, getEntities, getEntitiesClaims, \
-    get_forward_items, get_reverse_items
+    get_forward_items, get_reverse_items, search_wikidata
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator',
@@ -15,21 +15,22 @@ translator_ns = api.namespace('translator')
 ns = api.namespace('default')
 
 ##########
-# Concepts
+# GET /concepts/{conceptId}
 ##########
 
-id_label = api.model("id_label", {
-    'id': fields.String(required=True, description="identifier", example="wd:Q7187"),
-    'label': fields.String(required=True, description="label", example="gene"),
+concept_detail = api.model("concept_detail", {
+    'tag': fields.String(description="property name"),
+    'value': fields.String(description="property value"),
 })
 
 concept = api.model('concept', {
-    'id': fields.String(required=True, description="identifier", example="wd:Q14883734"),
-    'label': fields.String(required=True, description="label", example="WRN"),
-    'types': fields.List(fields.Nested(id_label), required=False, description="type of item. gotten from instance of"),
-    'aliases': fields.List(fields.String(), required=False, description="list of aliases",
+    'id': fields.String(required=True, description="local object identifier for the concept", example="wd:Q14883734"),
+    'name': fields.String(required=True, description="canonical human readable name of the concept (aka label)", example="WRN"),
+    'semanticGroup': fields.String(required=False, description="concept semantic type"),
+    'synonyms': fields.List(fields.String(), required=False, description="aka aliases",
                            example=['RECQ3', 'Werner syndrome RecQ like helicase']),
-    'description': fields.String(required=True, description="description", example="gene of the species Homo sapiens"),
+    'definition': fields.String(required=True, description="concept definition (aka description)", example="gene of the species Homo sapiens"),
+    'details': fields.List(fields.Nested(concept_detail, required=False), required=False)
 })
 
 
@@ -43,12 +44,13 @@ class GetConcept(Resource):
         """
         return getConcept(conceptId)
 
+##########
+# GET /concepts
+##########
 
 search_result = api.model("search_result", {
-    "keywords": fields.List(fields.String(), required=True, description="keywords that were searched",
-                            example=['hereditary', 'blindness']),
-    "types": fields.List(fields.String(), required=False, description="constrain search by type",
-                         example=["wd:Q12136"]),
+    "keywords": fields.String(required=True, description="keywords that were searched", example='night blindness'),
+    "semgroups": fields.String(description="constrain search by semantic groups", example='DISO CHEM'),
     "pageNumber": fields.Integer(required=True, description="(1-based) number of the page returned", example=1, type=int),
     "pageSize": fields.Integer(required=True, description="number of concepts per page", example=10, type=int),
     # "totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
@@ -57,9 +59,9 @@ search_result = api.model("search_result", {
 
 
 @translator_ns.route('/concepts')
-@translator_ns.param('q', 'array of keywords or substrings against which to match concept names and synonyms',
-                     default=['night', 'blindness'])
-@translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
+@translator_ns.param('keywords', 'space delimited set of keywords or substrings against which to match concept names and synonyms',
+                     default='night blindness', required = True)
+@translator_ns.param('semgroups', 'space-delimited set of semantic groups to which to constrain concepts matched by the main keyword search', default='DISO CHEM')
 @translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
                      default=1, type=int)
 @translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
@@ -70,44 +72,23 @@ class GetConcepts(Resource):
         """
         Retrieves a (paged) list of concepts in Wikidata
         """
-        q = request.args['q']
-        search = ' '.join([x.strip() for x in q.split(",")])
-        types = request.args.get('types', None)
-        types = types.split(",") if types else []
+        keywords = request.args['keywords'].split(" ")
+        semgroups = request.args.get('semgroups', None)
+        semgroups = semgroups.split(" ") if semgroups else []
         pageNumber = int(request.args.get('pageNumber', 1))
         pageSize = int(request.args.get('pageSize', 10))
+        if pageSize > 50:
+            abort(message="pageSize can not be greater than 50")
 
-        params = {'action': 'wbsearchentities',
-                  'language': 'en',
-                  'search': search,
-                  'type': "item",
-                  'format': 'json',
-                  'limit': pageSize,
-                  'continue': (pageNumber - 1) * pageSize}
-        print(params)
-        r = requests.get("https://www.wikidata.org/w/api.php", params=params)
-        r.raise_for_status()
-        d = r.json()
-        dataPage = d['search']
-        for item in dataPage:
-            item['id'] = "wd:" + item['id']
-            del item['repository']
-            del item['concepturi']
-        items = [x['id'] for x in dataPage]
-        print("items: {}".format(items))
-        dataPage = list(getConcepts(tuple(items)).values())
-
-        if types:
-            dataPage = [item for item in dataPage if
-                        'types' in item and item['types'] and (any(t['id'] in types for t in item['types']))]
+        dataPage = search_wikidata(keywords, semgroups=semgroups, pageNumber=pageNumber, pageSize=pageSize)
 
         return {
             'pageNumber': pageNumber,
             # 'totalEntries': None,
-            'keywords': [x.strip() for x in q.split(",")],
+            'keywords': request.args['keywords'],
             'pageSize': pageSize,
             'dataPage': dataPage,
-            "types": types,
+            "semgroups": request.args.get('semgroups', ''),
         }
 
 

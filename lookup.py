@@ -4,7 +4,7 @@ from pprint import pprint
 from cachetools import cached, TTLCache
 import requests
 
-from utils import prop_curie, CurieUtil, curie_map, Typer, relationship_map, execute_sparql_query
+from utils import prop_curie, CurieUtil, curie_map, Typer, execute_sparql_query, always_curie, always_qid
 
 cu = CurieUtil(curie_map)
 CACHE_SIZE = 99999
@@ -103,17 +103,8 @@ def parse_claims(wdclaims):
     return claims
 
 
-def add_prop_uri(claims):
-    for claim in claims:
-        prop_uri = 'http://www.wikidata.org/prop/' + claim['property']
-        if prop_uri in relationship_map:
-            claim['property_uri'] = relationship_map[prop_uri]
-    return claims
-
-
 def getEntities(qids):
-    qids = {qid.replace("wd:", "") if qid.startswith("wd:") else qid for qid in qids}
-    assert all(qid.startswith("Q") for qid in qids), "All QIDs must start with 'Q'"
+    qids = set(map(always_qid, qids))
     params = {'action': 'wbgetentities', 'ids': "|".join(qids), 'languages': 'en', 'format': 'json'}
     r = requests.get("https://www.wikidata.org/w/api.php", params=params)
     print(r.url)
@@ -131,6 +122,7 @@ def getEntitiesClaims(qids):
     # qid = 'Q18557952'
 
     """
+    qids = set(map(always_qid, qids))
     entities = getEntities(qids)
     allclaims = {}
     for qid, entity in entities.items():
@@ -190,37 +182,33 @@ def getConceptLabels(qids):
 
 
 def getConcept(qid):
-    return getConcepts((qid,))[qid]
+    return getConcepts((qid,))[always_curie(qid)]
 
 
 @cached(TTLCache(10000, 300))  # expire after 5 min
 def getConcepts(qids):
+    """
+    tes case: Q417169 (PLAU is both gene and pharmaceutical drug)
+    :param qids:
+    :return:
+    """
     entities = getEntities(qids)
 
     dd = dict()
     for qid, wd in entities.items():
         d = dict()
         d['id'] = 'wd:{}'.format(wd['id'])
-        d['label'] = wd['labels']['en']['value'] if 'en' in wd['labels'] else ''
-        d['description'] = wd['descriptions']['en']['value'] if 'en' in wd['descriptions'] else ''
-        d['aliases'] = [x['value'] for x in wd['aliases']['en']] if 'aliases' in wd and 'en' in wd['aliases'] else []
+        d['name'] = wd['labels']['en']['value'] if 'en' in wd['labels'] else ''
+        d['definition'] = wd['descriptions']['en']['value'] if 'en' in wd['descriptions'] else ''
+        d['synonyms'] = [x['value'] for x in wd['aliases']['en']] if 'aliases' in wd and 'en' in wd['aliases'] else []
         if 'P31' in wd['claims']:
             instances = [x['mainsnak']['datavalue']['value']['id'] for x in wd['claims']['P31']]
-            d['types'] = [{'id': "wd:" + instance_qid} for instance_qid in instances]
+            type_qids = set(instances)
+            d['semanticGroup'] = ' '.join(set(Typer().get_type(qid) for qid in type_qids) - {None})
         else:
-            d['types'] = []
+            d['semanticGroup'] = ''
+        d['details'] = []  # idk what this is
         dd["wd:" + qid] = d
-
-    # add labels to the types. Do it in one API call
-    types = set()
-    for value in dd.values():
-        if 'types' in value and value['types']:
-            types.update({x['id'] for x in value['types']})
-    if types:
-        typed = getConceptLabels(tuple(types))
-        for value in dd.values():
-            if 'types' in value and value['types']:
-                value['types'] = [{'id': x['id'], 'label': typed[x['id'].replace("wd:", "")]} for x in value['types']]
     return dd
 
 
@@ -313,6 +301,42 @@ def get_forward_items(qids):
     return results
 
 
+def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
+    #keywords = ['night', 'blindness']
+    #keywords = ['PLAU']
+    #semgroups = ['CHEM', 'DISO']
+    #pageSize = 10
+    #pageNumber = 1
+
+    semgroups = semgroups if semgroups else []
+    params = {'action': 'wbsearchentities',
+              'language': 'en',
+              'search': ' '.join(keywords),
+              'type': "item",
+              'format': 'json',
+              'limit': pageSize,
+              'continue': (pageNumber - 1) * pageSize}
+    r = requests.get("https://www.wikidata.org/w/api.php", params=params)
+    r.raise_for_status()
+    d = r.json()
+    dataPage = d['search']
+    for item in dataPage:
+        item['id'] = "wd:" + item['id']
+        del item['repository']
+        del item['concepturi']
+    items = [x['id'] for x in dataPage]
+    print("items: {}".format(items))
+
+    if not items:
+        return []
+
+    # get detailed info about the found concepts
+    dataPage = list(getConcepts(tuple(items)).values())
+    print("semgroups: {}".format(semgroups))
+    if semgroups:
+        dataPage = [item for item in dataPage if item['semanticGroup'] and (any(item_sg in semgroups for item_sg in item['semanticGroup'].split(" ")))]
+
+    return dataPage
 
 
 """
