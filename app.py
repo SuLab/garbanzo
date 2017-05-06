@@ -233,7 +233,53 @@ class GetStatements(Resource):
 
         return {'keywords': [], 'semanticGroups': [], 'dataPage': datapage}
 
+##########
+# GET /evidence/{statementId}
+##########
 
+
+evidence_statement_model = api.model("evidence_statement_model", {
+    'id': fields.String(description="local evidence identifier", example='', required=True),
+    'evidence': fields.String(required=True),
+})
+
+@translator_ns.route('/evidence/<statementId>')
+@translator_ns.param('statementId', '', default='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29')
+class GetEvidence(Resource):
+    @api.marshal_with(evidence_statement_model)
+    @api.doc(description="Retrieve evidence for a specified concept-relationship statement")
+    def get(self, statementId):
+        """
+        Get statements
+        """
+        if '$' not in statementId:
+            statementId = statementId.replace("-", '$', 1)
+
+        params = {'action': 'wbgetclaims',
+                  'claim': statementId,
+                  'format': 'json'}
+        r = requests.get("https://www.wikidata.org/w/api.php", params=params)
+        r.raise_for_status()
+        d = r.json()
+        pid = list(d['claims'].keys())[0]
+        qid = statementId.split("$")[0].upper()
+        url = "https://www.wikidata.org/wiki/{}#{}".format(qid, pid)
+
+        return {"id": statementId, "evidence" : url}
+
+
+
+
+
+
+
+
+
+
+
+##########
+# Other stuff (default namespace)
+##########
 
 
 
