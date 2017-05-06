@@ -93,9 +93,10 @@ class GetConcepts(Resource):
 
 
 ##########
-# exactmatches
+# GET /exactmatches
 ##########
 
+"""
 evidence_model = api.model("evidence_model", {
     'id': fields.String(description="local identifier to evidence record",
                         example='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'),
@@ -110,32 +111,38 @@ match_model = api.model('match_model', {
     'id': fields.String(required=True, description="identifier that was searched for", example="MESH:D009755"),
     'exactmatches': fields.List(fields.Nested(id_model), required=False, description="matches"),
 })
+"""
 
 
 @translator_ns.route('/exactMatches/')
-@translator_ns.param('conceptId', 'a (urlencoded) space-delimited set of CURIE-encoded identifiers of exactly '
-                                  'matching concepts, to be used in a search for additional exactly matching concepts',
+@translator_ns.param('c', 'space-delimited set of CURIE-encoded identifiers of exactly matching concepts, '
+                          'to be used in a search for additional exactly matching concepts',
                      default="MESH:D009755", required=True)
 class GetConcept(Resource):
-    @api.marshal_with(match_model)
+    #@api.marshal_with(match_model)
     @api.doc(
-        description="Given an list of input CURIEs, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
-                    "This new list of concept identifiers is returned with the full list of any additional identifiers deemed by the KS to also be "
-                    "identifying exactly matched concepts.")
+        description="""Given an input list of CURIE identifiers of known exactly matched concepts sensa-SKOS, retrieves
+        the list of CURIE identifiers of additional concepts that are deemed by the given knowledge source to be exact
+        matches to one or more of the input concepts. If an empty set is returned, the it can be assumed that the given
+        knowledge source does not know of any new equivalent concepts to add to the input set.""")
     def get(self):
         """
         Retrieves identifiers that are specified as "external-ids" with the associated input identifiers
         """
-        concepts = request.args.get("conceptId", '')
-        qids = []
-        for c in concepts.split():
-            if c.startswith("wd:"):
-                qids.append(c)
-            else:
-                try:
-                    qids.extend(get_equiv_item(c))
-                except ValueError as e:
-                    abort(message=str(e))
+        concepts = request.args.get("c", '')
+        concepts = concepts.split(" ") if concepts else []
+        input_concepts = set(concepts)
+        curies = set(x for x in concepts if not x.startswith("wd:"))
+        try:
+            equiv_qid = {curie: get_equiv_item(curie) for curie in curies}
+        except ValueError as e:
+            abort(message=str(e))
+            return None
+
+        qids = set(x for x in concepts if x.startswith("wd:"))
+        qids.update(set(chain(*equiv_qid.values())))
+
+        # get all xrefs from these qids
         claims = getEntitiesCurieClaims(qids)
         claims = list(chain(*claims.values()))
         claims = [claim.to_dict() for claim in claims]
@@ -144,8 +151,13 @@ class GetConcept(Resource):
             claim['id'] = claim['datavaluecurie']
             del claim['datavaluecurie']
             del claim['references']
-        r = {'id': concepts, 'exactmatches': claims}
-        return r
+
+        # figure out all ids that we got, make sure the wd curie is in it, then remove the input curies
+        response_ids = set(x['id'] for x in claims)
+        response_ids.update(qids)
+        response_ids = response_ids - input_concepts
+
+        return list(response_ids)
 
 
 ##########
