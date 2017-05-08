@@ -9,7 +9,12 @@ from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClai
     get_forward_items, get_reverse_items, search_wikidata
 
 app = Flask(__name__)
-api = Api(app, version='1.0', title='Garbanzo API', description='A SPARQL/Wikidata Query API wrapper for Translator',
+description = """A SPARQL/Wikidata Query API wrapper for Translator
+
+Endpoints under the "translator" namespace implement a Knowedge Beacon for the Translator Knowledge Beacon API (http://beacon.medgeninformatics.net/api/swagger-ui.html) version 1.0.11
+
+"""
+api = Api(app, version='1.0.11', title='Garbanzo API', description=description,
           contact_url="https://github.com/stuppie/garbanzo", contact="gstupp")
 translator_ns = api.namespace('translator')
 ns = api.namespace('default')
@@ -118,7 +123,7 @@ match_model = api.model('match_model', {
 @translator_ns.param('c', 'space-delimited set of CURIE-encoded identifiers of exactly matching concepts, '
                           'to be used in a search for additional exactly matching concepts',
                      default="MESH:D009755", required=True)
-class GetConcept(Resource):
+class GetExactMatches(Resource):
     #@api.marshal_with(match_model)
     @api.doc(
         description="""Given an input list of CURIE identifiers of known exactly matched concepts sensa-SKOS, retrieves
@@ -157,6 +162,40 @@ class GetConcept(Resource):
         response_ids.update(qids)
         response_ids = response_ids - input_concepts
 
+        return list(response_ids)
+
+
+##########
+# GET /exactmatches/{conceptId}
+##########
+
+@translator_ns.route('/exactmatches/<conceptId>')
+@translator_ns.param('conceptId', 'curie', default="MESH:D009755")
+class GetExactMatch(Resource):
+    @api.doc(
+        description="""Retrieves a list of qualified identifiers of "exact match" concepts, sensa SKOS associated with
+        a specified (url-encoded) CURIE (without brackets) concept object identifier, typically, of a concept selected
+        from the list of concepts originally returned by a /concepts API call on a given KS.""")
+    def get(self, conceptId):
+        """
+        Retrieves identifiers that are specified as "external-ids" with the associated input identifier
+        """
+        if conceptId.startswith("wd:"):
+            qids = (conceptId,)
+        else:
+            qids = get_equiv_item(conceptId)
+        if not qids:
+            return []
+        claims = getEntitiesCurieClaims(qids)
+        claims = list(chain(*claims.values()))
+        claims = [claim.to_dict() for claim in claims]
+        for claim in claims:
+            claim['evidence'] = {'id': claim['id']}
+            claim['id'] = claim['datavaluecurie']
+            del claim['datavaluecurie']
+            del claim['references']
+
+        response_ids = set(x['id'] for x in claims) | set(qids)
         return list(response_ids)
 
 
@@ -229,8 +268,6 @@ class GetStatements(Resource):
                      'evidence': {'id': item['id']}
                      } for item in items]
 
-
-
         return {'keywords': [], 'semanticGroups': [], 'dataPage': datapage}
 
 ##########
@@ -265,7 +302,7 @@ class GetEvidence(Resource):
         qid = statementId.split("$")[0].upper()
         url = "https://www.wikidata.org/wiki/{}#{}".format(qid, pid)
 
-        return {"id": statementId, "evidence" : url}
+        return {"id": statementId, "evidence": url}
 
 
 
