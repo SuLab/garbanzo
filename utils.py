@@ -79,6 +79,14 @@ curie_map = {
         'uri': 'http://identifiers.org/uniprot/',
         'pid': 'http://www.wikidata.org/prop/P352',
     },
+    'HGNCS': {  # hgnc symbol
+        'uri': 'http://identifiers.org/hgnc.symbol/',
+        'pid': 'http://www.wikidata.org/prop/P353',
+    },
+    'HGNC': {  # hgnc id
+        'uri': 'http://identifiers.org/hgnc/',
+        'pid': 'http://www.wikidata.org/prop/P354',
+    },
     'DOID': {
         'uri': 'http://purl.obolibrary.org/obo/DOID_',
         'pid': 'http://www.wikidata.org/prop/P699',
