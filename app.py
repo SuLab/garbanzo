@@ -211,9 +211,9 @@ datapage_model = api.model("datapage_model", {
 
 
 @translator_ns.route('/statements')
-@translator_ns.param('emci', 'a (urlencoded) space-delimited set of CURIE-encoded identifiers of exactly matching '
-                             'concepts to be used in a search for associated concept-relation statements',
-                     default="wd:Q133696", required=True)
+@translator_ns.param('c', 'set of CURIE-encoded identifiers of exactly matching concepts to be used in a search '
+                          'for associated concept-relation statements',
+                     default="wd:Q133696", required=True, type=[str])
 @translator_ns.param('types', 'constrain search by type', default=['wd:Q12136'])
 @translator_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
                      default=1, type=int)
@@ -232,8 +232,8 @@ class GetStatements(Resource):
         """
         Get statements
         """
-        qids = request.args['emci']
-        qids = tuple([x.strip().replace("wd:", "") for x in qids.split()])
+        qids = request.args['c']
+        qids = tuple([x.strip().replace("wd:", "") for x in qids.split(",")])
         items = get_forward_items(qids) + get_reverse_items(qids)
 
         datapage = [{'id': item['id'],

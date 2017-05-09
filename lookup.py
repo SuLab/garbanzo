@@ -381,11 +381,11 @@ example_triple = {"source": "wikidata",
                   "evidence": [
                       {
                           'value': {'id': 'wd:Q28556593', 'name': 'Disease Ontology release 2017-01-27'},
-                          'predicate': {'id': 'wd:P248', 'name': 'stated in', 'equivalentProperty': []}
+                          'predicate': {'id': 'wd:P248', 'name': 'stated in'}
                       },
                       {
                           'value': {'datavalue': '+2017-01-31T00:00:00Z', 'datavaluetype': 'time'},
-                          'predicate': {'id': 'wd:P813', 'name': 'retrieved', 'equivalentProperty': []}
+                          'predicate': {'id': 'wd:P813', 'name': 'retrieved'}
                       },
                       {
                           'value': {'datavalue': 'DOID:8499', 'datavaluetype': 'string'},
