@@ -4,7 +4,8 @@ from pprint import pprint
 from cachetools import cached, TTLCache
 import requests
 
-from utils import prop_curie, CurieUtil, curie_map, Typer, execute_sparql_query, always_curie, always_qid
+from utils import prop_curie, CurieUtil, curie_map, execute_sparql_query, always_curie, always_qid, \
+    get_types_from_qids
 
 cu = CurieUtil(curie_map)
 CACHE_SIZE = 99999
@@ -156,13 +157,12 @@ def getEntitiesCurieClaims(qids):
 
 
 def get_types(claims):
-    typer = Typer()
     instances = set()
     for claim in claims:
         if claim['property'] == 'P31':
             instances.add(claim['datavalue'])
-    types = [typer.get_type(x) for x in instances if typer.get_type(x)]
-    return types
+    types = get_types_from_qids(instances)
+    return list(types)
 
 
 @cached(TTLCache(CACHE_SIZE, CACHE_TIMEOUT_SEC))
@@ -188,7 +188,8 @@ def getConcept(qid):
 @cached(TTLCache(10000, 300))  # expire after 5 min
 def getConcepts(qids):
     """
-    tes case: Q417169 (PLAU is both gene and pharmaceutical drug)
+    test case: Q417169 (PLAU is both gene and pharmaceutical drug)
+    Q27551855 (protein)
     :param qids:
     :return:
     """
@@ -204,7 +205,8 @@ def getConcepts(qids):
         if 'P31' in wd['claims']:
             instances = [x['mainsnak']['datavalue']['value']['id'] for x in wd['claims']['P31']]
             type_qids = set(instances)
-            d['semanticGroup'] = ' '.join(set(Typer().get_type(qid) for qid in type_qids) - {None})
+            print(type_qids)
+            d['semanticGroup'] = ' '.join(get_types_from_qids(type_qids))
         else:
             d['semanticGroup'] = ''
         d['details'] = []  # idk what this is

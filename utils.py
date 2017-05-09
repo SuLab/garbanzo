@@ -6,8 +6,18 @@
 provenence map: https://github.com/monarch-initiative/dipper/blob/master/dipper/models/Provenance.py
 
 """
+from itertools import chain
+
 import requests
 
+def alwayslist(value):
+    """If input value if not a list/tuple type, return it as a single value list."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return value
+    else:
+        return [value]
 
 def always_curie(s):
     assert s.startswith("Q") or s.startswith("wd:")
@@ -20,36 +30,36 @@ def always_qid(s):
 # if an item is "instance of" this item, this is its type
 # https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt
 # For futrue reference : https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
-class Typer:
-    qid_type = {
-        # disease
-        'Q12136': 'DISO',
-        # gene
-        'Q7187': 'GENE',
-        # protein
-        #'http://www.wikidata.org/entity/Q8054': '',
-        # chromosome
-        #'http://www.wikidata.org/entity/Q37748': '',
-        # chemical compound
-        'Q11173': 'CHEM',
-        # pharmaceutical drug
-        'Q12140': 'CHEM',
-        # protein family
-        #'http://www.wikidata.org/entity/Q417841': '',
-        # protein domain
-        #'http://www.wikidata.org/entity/Q898273': '',
-        # human
-        'Q5': 'LIVB',
-        # BP
-        'Q2996394': 'PHYS',
-        # MF
-        'Q14860489': 'PHYS',
-        # CC
-        'Q5058355': 'PHYS',
-        }
+qid_type = {
+    # disease
+    'Q12136': 'DISO',
+    # gene
+    'Q7187': 'GENE',
+    # protein
+    'Q8054': ['GENE', 'CHEM'],
+    #'http://www.wikidata.org/entity/Q8054': '',
+    # chromosome
+    #'http://www.wikidata.org/entity/Q37748': '',
+    # chemical compound
+    'Q11173': 'CHEM',
+    # pharmaceutical drug
+    'Q12140': 'CHEM',
+    # protein family
+    #'http://www.wikidata.org/entity/Q417841': '',
+    # protein domain
+    #'http://www.wikidata.org/entity/Q898273': '',
+    # human
+    'Q5': 'LIVB',
+    # BP
+    'Q2996394': 'PHYS',
+    # MF
+    'Q14860489': 'PHYS',
+    # CC
+    'Q5058355': 'PHYS',
+    }
 
-    def get_type(self, qid):
-        return self.qid_type.get(qid)
+def get_types_from_qids(qids):
+    return set(chain(*[alwayslist(qid_type[qid]) for qid in qids if qid in qid_type]))
 
 ### not used for anything
 """
