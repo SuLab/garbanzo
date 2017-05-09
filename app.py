@@ -38,6 +38,15 @@ concept = api.model('concept', {
     'details': fields.List(fields.Nested(concept_detail, required=False), required=False)
 })
 
+concepts = api.model('concepts', {
+    'id': fields.String(required=True, description="local object identifier for the concept", example="wd:Q14883734"),
+    'name': fields.String(required=True, description="canonical human readable name of the concept (aka label)", example="WRN"),
+    'semanticGroup': fields.String(required=False, description="concept semantic type"),
+    'synonyms': fields.List(fields.String(), required=False, description="aka aliases",
+                           example=['RECQ3', 'Werner syndrome RecQ like helicase']),
+    'definition': fields.String(required=True, description="concept definition (aka description)", example="gene of the species Homo sapiens"),
+})
+
 
 @translator_ns.route('/concepts/<conceptId>')
 @translator_ns.param('conceptId', 'Wikidata entity curie', default="wd:Q18557952")
@@ -53,16 +62,6 @@ class GetConcept(Resource):
 # GET /concepts
 ##########
 
-search_result = api.model("search_result", {
-    "keywords": fields.String(required=True, description="keywords that were searched", example='night blindness'),
-    "semgroups": fields.String(description="constrain search by semantic groups", example='DISO CHEM'),
-    "pageNumber": fields.Integer(required=True, description="(1-based) number of the page returned", example=1, type=int),
-    "pageSize": fields.Integer(required=True, description="number of concepts per page", example=10, type=int),
-    # "totalEntries": fields.Integer(required=True, description="totalEntries", example=1234),
-    "dataPage": fields.List(fields.Nested(concept))
-})
-
-
 @translator_ns.route('/concepts')
 @translator_ns.param('keywords', 'space delimited set of keywords or substrings against which to match concept names and synonyms',
                      default='night blindness', required = True)
@@ -72,7 +71,7 @@ search_result = api.model("search_result", {
 @translator_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
                      default=10, type=int)
 class GetConcepts(Resource):
-    @api.marshal_with(search_result)
+    @api.marshal_with(concepts)
     def get(self):
         """
         Retrieves a (paged) list of concepts in Wikidata
@@ -87,14 +86,7 @@ class GetConcepts(Resource):
 
         dataPage = search_wikidata(keywords, semgroups=semgroups, pageNumber=pageNumber, pageSize=pageSize)
 
-        return {
-            'pageNumber': pageNumber,
-            # 'totalEntries': None,
-            'keywords': request.args['keywords'],
-            'pageSize': pageSize,
-            'dataPage': dataPage,
-            "semgroups": request.args.get('semgroups', ''),
-        }
+        return dataPage
 
 
 ##########
@@ -204,12 +196,6 @@ class GetExactMatch(Resource):
 ##########
 
 
-evidence_model = api.model("evidence_model", {
-    'id': fields.String(description="local identifier to evidence record",
-                        example='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29', required=True),
-    # I don't know what 'count' is for
-})
-
 object_model = api.model("object_model", {
     'id': fields.String(description="CURIE-encoded local identifier", example='', required=True),
     'name': fields.String(description="human readable label of concept", example=''),
@@ -217,22 +203,11 @@ object_model = api.model("object_model", {
 
 datapage_model = api.model("datapage_model", {
     'id': fields.String(description="local statement identifier", example='', required=True),
-    'evidence': fields.Nested(evidence_model, required=True),
     'subject': fields.Nested(object_model, required=True),
     'object': fields.Nested(object_model, required=True),
     'predicate': fields.Nested(object_model, required=True),
 
 })
-
-response_model = api.model("response_model", {
-    'keywords': fields.List(fields.String(), description="see input args", required=True),
-    'semanticGroups': fields.List(fields.String(), description="see input args", required=True),
-    'pageNumber': fields.Integer(required=True, description="(1-based) number of the page returned", example=1, type=int),
-    "pageSize": fields.Integer(required=True, description="number of concepts per page", example=10, type=int),
-    "totalEntries": fields.Integer(required=True, description="total number of concepts", example=100, type=int),
-    "dataPage": fields.List(fields.Nested(datapage_model), required=True)
-})
-
 
 
 @translator_ns.route('/statements')
@@ -248,7 +223,7 @@ response_model = api.model("response_model", {
                                  'against the subject, predicate or object names of the set of concept-relations matched '
                                  'by any of the input exact matching concepts')
 class GetStatements(Resource):
-    @api.marshal_with(response_model)
+    @api.marshal_with(datapage_model)
     @api.doc(
         description="Given an input CURIE, retrieves the list of CURIE identifiers of additional concepts that are deemed to be exact matches. "
                     "This new list of concept identifiers is returned with the full list of any additional identifiers deemed by the KS to also be "
@@ -265,10 +240,9 @@ class GetStatements(Resource):
                      'subject': {'id': item['item'], 'name': item['itemLabel']},
                      'predicate': {'id': item['property'], 'name': item['propertyLabel']},
                      'object': {'id': item['value'], 'name': item['valueLabel']},
-                     'evidence': {'id': item['id']}
                      } for item in items]
 
-        return {'keywords': [], 'semanticGroups': [], 'dataPage': datapage}
+        return datapage
 
 ##########
 # GET /evidence/{statementId}
