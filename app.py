@@ -232,8 +232,12 @@ class GetStatements(Resource):
         """
         Get statements
         """
-        qids = request.args['c']
-        qids = tuple([x.strip().replace("wd:", "") for x in qids.split(",")])
+        qids = request.args.getlist('c')
+        print(qids)
+        qids = set(chain(*[x.split(",") for x in qids]))
+        print(qids)
+        qids = tuple([x.strip().replace("wd:", "") for x in qids])
+        print(qids)
         items = get_forward_items(qids) + get_reverse_items(qids)
 
         datapage = [{'id': item['id'],
