@@ -11,19 +11,6 @@ cu = CurieUtil(curie_map)
 CACHE_SIZE = 99999
 CACHE_TIMEOUT_SEC = 300  # 5 min
 
-# a claim looks like this
-example_claim = {'datatype': 'external-id',
-                 'datavalue': '368.6',
-                 'datavaluetype': 'string',
-                 'id': 'q7757581$F9DF6AB9-80BC-45A4-9CF8-6D39274EF7F3',
-                 'property': 'P493',
-                 'rank': 'normal',
-                 'references': [[{'datatype': 'wikibase-item',
-                                  'datavalue': 'Q328',
-                                  'datavaluetype': 'wikibase-entityid',
-                                  'property': 'P143'}]]}
-
-
 class Claim:
     def __init__(self, id=None, datatype=None, rank=None, property=None, datavalue=None, datavaluetype=None,
                  references=None, qualifiers=None):
@@ -209,7 +196,7 @@ def getConcepts(qids):
             d['semanticGroup'] = ' '.join(get_types_from_qids(type_qids))
         else:
             d['semanticGroup'] = ''
-        d['details'] = []  # idk what this is
+        #d['details'] = []  # idk what this is
         dd["wd:" + qid] = d
     return dd
 
@@ -340,12 +327,45 @@ def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
 
     return dataPage
 
+def get_concept_details(qid):
+    """
+    This will form the "details" for the GET /translator/concepts/{conceptId} endpoint
+    :param qid:
+    :return:
+    """
+    query_str = """SELECT distinct ?prop ?propLabel ?value ?valueLabel
+    WHERE
+    {{
+        {} ?p ?value .
+        ?prop wikibase:directClaim ?p .
+        SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en" . }}
+    }}""".format(always_curie(qid))
+    d = execute_sparql_query(query_str)['results']['bindings']
+    results = [{k: v['value'] for k, v in item.items()} for item in d]
+    for result in results:
+        result['prop'] = result['prop'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['tag'] = result['prop']
+        result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
+    return results
+
 
 """
 Turn a list of claims into triple format:
 
 
 """
+# a claim looks like this
+example_externalid_claim = {'datatype': 'external-id',
+                 'datavalue': '368.6',
+                 'datavaluetype': 'string',
+                 'id': 'q7757581$F9DF6AB9-80BC-45A4-9CF8-6D39274EF7F3',
+                 'property': 'P493',
+                 'rank': 'normal',
+                 'references': [[{'datatype': 'wikibase-item',
+                                  'datavalue': 'Q328',
+                                  'datavaluetype': 'wikibase-entityid',
+                                  'property': 'P143'}]]}
+
 example_claim = {'id': 'Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29',
                  'rank': 'normal',
                  'property': 'P279',
@@ -394,3 +414,20 @@ example_triple = {"source": "wikidata",
                       },
                   ]
                   }
+
+"""
+Ideas for returning references:
+
+Reference URLs
+If a reference returns a property that is of type 'external-id' and has a prop "formatter url", then you can
+return a reference url for that external id.
+If a reference returns a "reference url" prop, you can return that as well.
+
+PMID
+If a reference returns a "stated in" prop with a value being an item that itself has a pmid, you can return that.
+
+Dates
+Retrieved
+Publication Date
+
+"""
