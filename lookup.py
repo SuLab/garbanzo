@@ -5,7 +5,7 @@ from cachetools import cached, TTLCache
 import requests
 
 from utils import prop_curie, CurieUtil, curie_map, execute_sparql_query, always_curie, always_qid, \
-    get_types_from_qids
+    get_types_from_qids, qid_type
 
 cu = CurieUtil(curie_map)
 CACHE_SIZE = 99999
@@ -213,6 +213,49 @@ def getConcepts(qids):
         dd["wd:" + qid] = d
     return dd
 
+def get_name_label(qid):
+    ''' get the label for this qid, if it exists, otherwise return none '''
+    try:
+        return requests.get('https://www.wikidata.org/w/api.php?action=wbgetentities&ids={}&languages=en&format=json'.format(qid)).json()['entities'][qid]['labels']['en']['value'] 
+    except KeyError:
+        return None
+
+@cached(TTLCache(CACHE_SIZE, CACHE_TIMEOUT_SEC))
+def get_all_types(label_type='wd'):
+    """
+    Get all semantic group types, and their counts.
+    :param label_type: "w" if wikidata label names, "g" for garbanzo semantic type group names, "b" for both
+    :return: {"id": [], "count": xx} for all entity types in garbanzo
+    """
+    agg = {}
+    for (entity_id, group_name) in qid_type.items():
+        if isinstance(group_name, str):
+            group_name = [group_name]
+        for group in group_name:
+            if entity_id != 'Q5':  # Q5 = human, can't do a count
+                query_str = """SELECT (COUNT (DISTINCT ?type) AS ?count) WHERE {{?type wdt:P31 wd:{0} . SERVICE wikibase:label {{bd:serviceParam wikibase:language "en"}}}}""".format(entity_id)
+                agg[entity_id] = {'sum': int(execute_sparql_query(query_str)['results']['bindings'][0]['count']['value']),
+                                  'group': group}
+    
+    # this is overkill - once the knowledge beacon spec is fully fleshed out, we can make this way simpler...as of now
+    # it's still fluid, so this handles all possible output formatting options, triggered by the label_type parameter
+    _ret = []
+    for (k,v) in agg.items():
+        if label_type == 'w':
+            _name = get_name_label(k)
+            if _name:
+                _ret.append({'id': '{} wd:{}'.format(_name, k), 'count': v['sum']})
+            else:
+                _ret.append({'id': 'wd:{}'.format(k), 'count': v['sum']})
+        elif label_type == 'g':
+            _ret.append({'id': '{} wd:{}'.format(v['group'], k), 'count': v['sum']})
+        elif label_type == 'b':
+            _name = get_name_label(k)
+            if _name:
+                _ret.append({'id': '{} {} wd:{}'.format(v['group'], _name, k), 'count': v['sum']})
+            else:
+                _ret.append({'id': '{} wd:{}'.format(v['group'], k), 'count': v['sum']})
+    return _ret
 
 @cached(TTLCache(CACHE_SIZE, CACHE_TIMEOUT_SEC))
 def get_equiv_item(curie):

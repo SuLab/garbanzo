@@ -6,7 +6,7 @@ from flask_restplus import Api, Resource, fields
 import requests
 from utils import CurieUtil, curie_map, execute_sparql_query
 from lookup import getConcept, getConcepts, get_equiv_item, getEntitiesCurieClaims, getEntities, getEntitiesClaims, \
-    get_forward_items, get_reverse_items, search_wikidata
+    get_forward_items, get_reverse_items, search_wikidata, get_all_types
 
 app = Flask(__name__)
 description = """A SPARQL/Wikidata Query API wrapper for Translator
@@ -46,7 +46,6 @@ concepts = api.model('concepts', {
                            example=['RECQ3', 'Werner syndrome RecQ like helicase']),
     'definition': fields.String(required=True, description="concept definition (aka description)", example="gene of the species Homo sapiens"),
 })
-
 
 @translator_ns.route('/concepts/<conceptId>')
 @translator_ns.param('conceptId', 'Wikidata entity curie', default="wd:Q18557952")
@@ -88,6 +87,17 @@ class GetConcepts(Resource):
 
         return dataPage
 
+##########
+# GET /types
+##########
+
+@translator_ns.route('/types')
+class GetTypes(Resource):
+    #@api.marshal_with(types)
+    def get(self):
+        """
+        """
+        return get_all_types('g')
 
 ##########
 # GET /exactmatches
@@ -279,21 +289,9 @@ class GetEvidence(Resource):
         return {"id": statementId, "evidence": url}
 
 
-
-
-
-
-
-
-
-
-
 ##########
 # Other stuff (default namespace)
 ##########
-
-
-
 
 prop = api.model('prop', {
     'count': fields.Integer(min=0, readOnly=True, description='count', example=7),
