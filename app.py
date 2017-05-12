@@ -302,7 +302,7 @@ class GetEvidence(Resource):
         qid = statementId.split("$")[0].upper()
         url = "https://www.wikidata.org/wiki/{}#{}".format(qid, pid)
 
-        return {"id": statementId, "evidence": url}
+        return [{"id": statementId, "evidence": url}]
 
 
 if __name__ == '__main__':
