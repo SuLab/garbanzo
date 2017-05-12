@@ -1,15 +1,17 @@
 from itertools import chain
-from pprint import pprint
 
 from cachetools import cached, TTLCache
 import requests
 
-from utils import prop_curie, CurieUtil, curie_map, execute_sparql_query, always_curie, always_qid, \
-    get_types_from_qids
+from utils import execute_sparql_query, always_curie, always_qid, get_types_from_qids
 
-cu = CurieUtil(curie_map)
+from wikicurie import wikicurie
+
+cu = wikicurie.CurieUtil()
+
 CACHE_SIZE = 99999
 CACHE_TIMEOUT_SEC = 300  # 5 min
+
 
 class Claim:
     def __init__(self, id=None, datatype=None, rank=None, property=None, datavalue=None, datavaluetype=None,
@@ -48,10 +50,7 @@ class Claim:
     def to_curie(self):
         prop = self.property
         value = self.datavalue
-        if 'http://www.wikidata.org/prop/' + prop in prop_curie:
-            return cu.make_curie(prop_curie['http://www.wikidata.org/prop/' + prop], value)
-        else:
-            return None
+        return cu.make_curie(prop, value)
 
 
 def parse_snak(snak):
@@ -196,7 +195,6 @@ def getConcepts(qids):
             d['semanticGroup'] = ' '.join(get_types_from_qids(type_qids))
         else:
             d['semanticGroup'] = ''
-        #d['details'] = []  # idk what this is
         dd["wd:" + qid] = d
     return dd
 
@@ -231,7 +229,7 @@ def get_reverse_items(qids):
       'value': 'wd:Q133696',
       'valueLabel': 'color blindness'}
     """
-    #qids = ('Q133696', 'Q18557952')
+    # qids = ('Q133696', 'Q18557952')
     values = " ".join(["wd:" + qid for qid in qids])
     query_str = """
     SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
@@ -245,7 +243,7 @@ def get_reverse_items(qids):
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
     }""".replace("{values}", values)
     d = execute_sparql_query(query_str)['results']['bindings']
-    results = [{k:v['value'] for k,v in item.items()} for item in d]
+    results = [{k: v['value'] for k, v in item.items()} for item in d]
     for result in results:
         result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
@@ -267,7 +265,7 @@ def get_forward_items(qids):
       'value': 'wd:Q133696',
       'valueLabel': 'color blindness'}
     """
-    #qids = ('Q133696', 'Q18557952')
+    # qids = ('Q133696', 'Q18557952')
     values = " ".join(["wd:" + qid for qid in qids])
     query_str = """
     SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
@@ -281,7 +279,7 @@ def get_forward_items(qids):
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
     }""".replace("{values}", values)
     d = execute_sparql_query(query_str)['results']['bindings']
-    results = [{k:v['value'] for k,v in item.items()} for item in d]
+    results = [{k: v['value'] for k, v in item.items()} for item in d]
     for result in results:
         result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
@@ -291,11 +289,11 @@ def get_forward_items(qids):
 
 
 def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
-    #keywords = ['night', 'blindness']
-    #keywords = ['PLAU']
-    #semgroups = ['CHEM', 'DISO']
-    #pageSize = 10
-    #pageNumber = 1
+    # keywords = ['night', 'blindness']
+    # keywords = ['PLAU']
+    # semgroups = ['CHEM', 'DISO']
+    # pageSize = 10
+    # pageNumber = 1
 
     semgroups = semgroups if semgroups else []
     params = {'action': 'wbsearchentities',
@@ -323,9 +321,11 @@ def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
     dataPage = list(getConcepts(tuple(items)).values())
     print("semgroups: {}".format(semgroups))
     if semgroups:
-        dataPage = [item for item in dataPage if item['semanticGroup'] and (any(item_sg in semgroups for item_sg in item['semanticGroup'].split(" ")))]
+        dataPage = [item for item in dataPage if item['semanticGroup'] and (
+        any(item_sg in semgroups for item_sg in item['semanticGroup'].split(" ")))]
 
     return dataPage
+
 
 def get_concept_details(qid):
     """
@@ -356,15 +356,15 @@ Turn a list of claims into triple format:
 """
 # a claim looks like this
 example_externalid_claim = {'datatype': 'external-id',
-                 'datavalue': '368.6',
-                 'datavaluetype': 'string',
-                 'id': 'q7757581$F9DF6AB9-80BC-45A4-9CF8-6D39274EF7F3',
-                 'property': 'P493',
-                 'rank': 'normal',
-                 'references': [[{'datatype': 'wikibase-item',
-                                  'datavalue': 'Q328',
-                                  'datavaluetype': 'wikibase-entityid',
-                                  'property': 'P143'}]]}
+                            'datavalue': '368.6',
+                            'datavaluetype': 'string',
+                            'id': 'q7757581$F9DF6AB9-80BC-45A4-9CF8-6D39274EF7F3',
+                            'property': 'P493',
+                            'rank': 'normal',
+                            'references': [[{'datatype': 'wikibase-item',
+                                             'datavalue': 'Q328',
+                                             'datavaluetype': 'wikibase-entityid',
+                                             'property': 'P143'}]]}
 
 example_claim = {'id': 'Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29',
                  'rank': 'normal',

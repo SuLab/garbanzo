@@ -32,8 +32,9 @@ evidence_ns = api.namespace('evidence', "Queries for references cited as evidenc
 def get_modified_swagger():
     d = api.__schema__
     d['info']['contact']['responsibleOrganization'] = 'TSRI'
-    d['info']['contact']['responsibleDeveloper'] = 'gss'
+    d['info']['contact']['responsibleDeveloper'] = 'Greg Stupp'
     return jsonify(d)
+
 
 ##########
 # GET /concepts/{conceptId}
@@ -88,15 +89,15 @@ class GetConcept(Resource):
 
 @concepts_ns.route('/')
 @concepts_ns.param('keywords',
-                     'space delimited set of keywords or substrings against which to match concept names and synonyms',
-                     default='night blindness', required=True)
+                   'space delimited set of keywords or substrings against which to match concept names and synonyms',
+                   default='night blindness', required=True)
 @concepts_ns.param('semgroups',
-                     'space-delimited set of semantic groups to which to constrain concepts matched by the main keyword search',
-                     default='DISO CHEM')
+                   'space-delimited set of semantic groups to which to constrain concepts matched by the main keyword search',
+                   default='DISO CHEM')
 @concepts_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
-                     default=1, type=int)
+                   default=1, type=int)
 @concepts_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
-                     default=10, type=int)
+                   default=10, type=int)
 class GetConcepts(Resource):
     @api.marshal_with(concepts_model)
     def get(self):
@@ -140,8 +141,8 @@ match_model = api.model('match_model', {
 
 @exactmatches_ns.route('/')
 @exactmatches_ns.param('c', 'space-delimited set of CURIE-encoded identifiers of exactly matching concepts, '
-                          'to be used in a search for additional exactly matching concepts',
-                     default="MESH:D009755", required=True)
+                            'to be used in a search for additional exactly matching concepts',
+                       default="MESH:D009755", required=True)
 class GetExactMatches(Resource):
     # @api.marshal_with(match_model)
     @api.doc(
@@ -236,6 +237,7 @@ datapage_model = api.model("datapage_model", {
 
 })
 
+
 @statements_ns.route('/')
 @statements_ns.param('c', 'set of CURIE-encoded identifiers of exactly matching concepts to be used in a search '
                           'for associated concept-relation statements',
@@ -259,7 +261,6 @@ class GetStatements(Resource):
         Get statements
         """
         qids = request.args.getlist('c')
-        print(qids)
         qids = set(chain(*[x.split(",") for x in qids]))
         print(qids)
         qids = tuple([x.strip().replace("wd:", "") for x in qids])
@@ -312,4 +313,4 @@ class GetEvidence(Resource):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run()
