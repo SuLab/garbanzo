@@ -8,6 +8,12 @@ from lookup import getConcept, get_equiv_item, getEntitiesCurieClaims, get_forwa
     search_wikidata, get_concept_details
 
 app = Flask(__name__)
+
+try:
+    app.config.from_object('local')
+except ImportError:
+    print("failed importing local settings")
+
 description = """A SPARQL/Wikidata Query API wrapper for Translator
 
 Implements a Knowedge Beacon for the Translator Knowledge Beacon API
