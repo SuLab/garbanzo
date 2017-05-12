@@ -73,7 +73,7 @@ class GetConcept(Resource):
         concept = getConcept(conceptId)
         details = get_concept_details(conceptId)
         concept['details'] = details
-        return concept
+        return [concept]
 
 
 ##########
