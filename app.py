@@ -175,7 +175,8 @@ class GetExactMatches(Resource):
             claim['evidence'] = {'id': claim['id']}
             claim['id'] = claim['datavaluecurie']
             del claim['datavaluecurie']
-            del claim['references']
+            if 'references' in claim:
+                del claim['references']
 
         # figure out all ids that we got, make sure the wd curie is in it, then remove the input curies
         response_ids = set(x['id'] for x in claims)
