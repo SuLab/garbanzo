@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 from flask_restplus import abort, Api, Resource, fields
 
 from lookup import getConcept, get_equiv_item, getEntitiesCurieClaims, get_forward_items, get_reverse_items, \
-    search_wikidata, get_concept_details
+    search_wikidata, get_concept_details, get_all_types
 
 app = Flask(__name__)
 
@@ -26,6 +26,7 @@ concepts_ns = api.namespace('concepts', "Queries for concepts")
 exactmatches_ns = api.namespace('exactmatches', "Queries for exactly matching concepts")
 statements_ns = api.namespace('statements', "Queries for concept-relationship statements")
 evidence_ns = api.namespace('evidence', "Queries for references cited as evidence for statements")
+types_ns = api.namespace('types', "Summary statistics about the knowledge source")
 
 
 @app.route("/swagger_smartapi.json")
@@ -115,6 +116,16 @@ class GetConcepts(Resource):
         dataPage = search_wikidata(keywords, semgroups=semgroups, pageNumber=pageNumber, pageSize=pageSize)
 
         return dataPage
+
+
+##########
+# GET /types
+##########
+@types_ns.route('')
+class GetTypes(Resource):
+    # @api.marshal_with(types)
+    def get(self):
+        return get_all_types('g')
 
 
 ##########
