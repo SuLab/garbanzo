@@ -225,7 +225,8 @@ class GetExactMatch(Resource):
             claim['evidence'] = {'id': claim['id']}
             claim['id'] = claim['datavaluecurie']
             del claim['datavaluecurie']
-            del claim['references']
+            if 'references' in claim:
+                del claim['references']
 
         response_ids = set(x['id'] for x in claims) | set(qids)
         return list(response_ids)
