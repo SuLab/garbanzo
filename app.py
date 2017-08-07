@@ -169,14 +169,13 @@ class GetExactMatches(Resource):
         concepts = concepts.split(" ") if concepts else []
         input_concepts = set(concepts)
         curies = set(x for x in concepts if not x.startswith("wd:"))
-        try:
-            equiv_qid = {curie: get_equiv_item(curie) for curie in curies}
-        except ValueError as e:
-            abort(message=str(e))
-            return None
+        equiv_qid = {curie: get_equiv_item(curie) for curie in curies}
 
         qids = set(x for x in concepts if x.startswith("wd:"))
         qids.update(set(chain(*equiv_qid.values())))
+
+        if not qids:
+            return []
 
         # get all xrefs from these qids
         claims = getEntitiesCurieClaims(qids)
