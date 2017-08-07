@@ -40,3 +40,8 @@ def test_evidence():
     d = result[0]
     assert d['id'] == 'Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'
     assert d['evidence'] == 'https://www.wikidata.org/wiki/Q7758678#P279'
+
+def test_bad_curie():
+    r = client.get("/exactmatches/GREG%3AD009755")
+    d = json.loads(r.data.decode('utf8'))
+    assert len(d) == 0

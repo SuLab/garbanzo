@@ -247,7 +247,11 @@ def get_equiv_item(curie):
     :param curie:
     :return:
     """
-    pid, value = cu.parse_curie(curie)
+    try:
+        pid, value = cu.parse_curie(curie)
+    except ValueError as e:
+        print(e)
+        return []
     prop_direct = "<http://www.wikidata.org/prop/direct/{}>".format(pid.split("/")[-1])
     query_str = "SELECT ?item WHERE {{ ?item {} '{}' }}".format(prop_direct, value)
     d = execute_sparql_query(query_str)['results']['bindings']
