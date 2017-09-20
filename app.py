@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 from flask_restplus import abort, Api, Resource, fields
 
 from lookup import getConcept, get_equiv_item, getEntitiesCurieClaims, get_forward_items, get_reverse_items, \
-    search_wikidata, get_concept_details, get_all_types
+    search_wikidata, get_concept_details, get_all_types, get_statements
 
 app = Flask(__name__)
 
@@ -254,14 +254,15 @@ datapage_model = api.model("datapage_model", {
 @statements_ns.param('c', 'set of CURIE-encoded identifiers of exactly matching concepts to be used in a search '
                           'for associated concept-relation statements',
                      default=["wd:Q133696"], required=True, type=[str])
-@statements_ns.param('types', 'constrain search by type', default='wd:Q12136')
+@statements_ns.param('types', '(NOT IMPLEMENTED) constrain search by type', default='wd:Q12136')
 @statements_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
                      default=1, type=int)
 @statements_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
                      default=10, type=int)
-@statements_ns.param('keywords', 'a (urlencoded) space delimited set of keywords or substrings against which to apply '
-                                 'against the subject, predicate or object names of the set of concept-relations matched '
-                                 'by any of the input exact matching concepts')
+@statements_ns.param('keywords',
+                     '(NOT IMPLEMENTED) a (urlencoded) space delimited set of keywords or substrings against which to apply '
+                     'against the subject, predicate or object names of the set of concept-relations matched '
+                     'by any of the input exact matching concepts')
 class GetStatements(Resource):
     @api.marshal_with(datapage_model)
     @api.doc(
@@ -277,15 +278,15 @@ class GetStatements(Resource):
         print(qids)
         qids = tuple([x.strip().replace("wd:", "") for x in qids])
         print(qids)
-        items = get_forward_items(qids) + get_reverse_items(qids)
+        datapage = get_statements(frozenset(qids))
 
-        datapage = [{'id': item['id'],
-                     'subject': {'id': item['item'], 'name': item['itemLabel']},
-                     'predicate': {'id': item['property'], 'name': item['propertyLabel']},
-                     'object': {'id': item['value'], 'name': item['valueLabel']},
-                     } for item in items]
+        pageNumber = int(request.args.get('pageNumber', 1))
+        pageSize = int(request.args.get('pageSize', 10))
 
-        return datapage
+        start_idx = ((pageNumber - 1) * pageSize)
+        end_idx = start_idx + pageSize
+
+        return datapage[start_idx:end_idx]
 
 
 ##########

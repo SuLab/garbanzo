@@ -9,7 +9,7 @@ from wikicurie import wikicurie
 
 cu = wikicurie.CurieUtil()
 
-CACHE_SIZE = 99999
+CACHE_SIZE = 10000
 CACHE_TIMEOUT_SEC = 300  # 5 min
 
 
@@ -331,6 +331,16 @@ def get_forward_items(qids):
         result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
     return results
 
+@cached(TTLCache(100, CACHE_TIMEOUT_SEC))
+def get_statements(qids):
+    items = get_forward_items(qids) + get_reverse_items(qids)
+
+    datapage = [{'id': item['id'],
+                 'subject': {'id': item['item'], 'name': item['itemLabel']},
+                 'predicate': {'id': item['property'], 'name': item['propertyLabel']},
+                 'object': {'id': item['value'], 'name': item['valueLabel']},
+                 } for item in items]
+    return datapage
 
 def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
     # keywords = ['night', 'blindness']
