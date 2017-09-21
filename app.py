@@ -254,13 +254,13 @@ datapage_model = api.model("datapage_model", {
 @statements_ns.param('c', 'set of CURIE-encoded identifiers of exactly matching concepts to be used in a search '
                           'for associated concept-relation statements',
                      default=["wd:Q133696"], required=True, type=[str])
-@statements_ns.param('types', '(NOT IMPLEMENTED) constrain search by type', default='wd:Q12136')
+@statements_ns.param('types', 'constrain search by type', default='LIVB')
 @statements_ns.param('pageNumber', '(1-based) number of the page to be returned in a paged set of query results',
                      default=1, type=int)
 @statements_ns.param('pageSize', 'number of concepts per page to be returned in a paged set of query results',
                      default=10, type=int)
 @statements_ns.param('keywords',
-                     '(NOT IMPLEMENTED) a (urlencoded) space delimited set of keywords or substrings against which to apply '
+                     'a (urlencoded) space delimited set of keywords or substrings against which to apply '
                      'against the subject, predicate or object names of the set of concept-relations matched '
                      'by any of the input exact matching concepts')
 class GetStatements(Resource):
@@ -275,10 +275,12 @@ class GetStatements(Resource):
         """
         qids = request.args.getlist('c')
         qids = set(chain(*[x.split(",") for x in qids]))
+        qids = frozenset([x.strip().replace("wd:", "") for x in qids])
         print(qids)
-        qids = tuple([x.strip().replace("wd:", "") for x in qids])
-        print(qids)
-        datapage = get_statements(frozenset(qids))
+
+        keywords = frozenset(request.args['keywords'].split(" ")) if "keywords" in request.args else None
+        types = frozenset(request.args['types'].split(" ")) if "types" in request.args else None
+        datapage = get_statements(qids, keywords, types)
 
         pageNumber = int(request.args.get('pageNumber', 1))
         pageSize = int(request.args.get('pageSize', 10))

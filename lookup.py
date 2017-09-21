@@ -331,8 +331,12 @@ def get_forward_items(qids):
         result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
     return results
 
+
 @cached(TTLCache(100, CACHE_TIMEOUT_SEC))
-def get_statements(qids):
+def get_statements(qids, keywords=None, types=None):
+    # keywords matches all statements whose labels match ANY of the keywords
+    # types matches all statements whose subject or object type matches ANY of the types
+
     items = get_forward_items(qids) + get_reverse_items(qids)
 
     datapage = [{'id': item['id'],
@@ -340,7 +344,29 @@ def get_statements(qids):
                  'predicate': {'id': item['property'], 'name': item['propertyLabel']},
                  'object': {'id': item['value'], 'name': item['valueLabel']},
                  } for item in items]
+
+    # filter results using the keywords
+    if keywords:
+        datapage2 = []
+        for dp in datapage:
+            # treat it as one string
+            this_labels = dp['subject']['name'] + dp['predicate']['name'] + dp['object']['name']
+            # ignore case
+            this_labels = this_labels.lower()
+            if any(k.lower() in this_labels for k in keywords):
+                datapage2.append(dp)
+
+        datapage = datapage2
+
+    if types:
+        concepts = getConcepts(
+            frozenset([x['subject']['id'] for x in datapage] + [x['object']['id'] for x in datapage]))
+        type_map = {k: v['semanticGroup'] for k, v in concepts.items()}
+        datapage = [x for x in datapage if
+                    any(t in [type_map[x['subject']['id']], type_map[x['object']['id']]] for t in types)]
+
     return datapage
+
 
 def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
     # keywords = ['night', 'blindness']
