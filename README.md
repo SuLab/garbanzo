@@ -1,7 +1,7 @@
 # garbanzo
 A [Wikidata](http://www.wikidata.org) API wrapper for Translator
 
-Implements a Knowedge Beacon for the [Translator Knowledge Beacon API](http://beacon.medgeninformatics.net/api/swagger-ui.html) version 1.0.11
+Implements a Knowedge Beacon for the [Translator Knowledge Beacon API](https://github.com/NCATS-Tangerine/translator-knowledge-beacon) version 1.0.12
 
 Live at [http://garbanzo.sulab.org/](http://garbanzo.sulab.org/)
 
