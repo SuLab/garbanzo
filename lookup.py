@@ -292,7 +292,7 @@ def get_reverse_items(qids):
         result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
         result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
+        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
     return results
 
 
@@ -328,7 +328,7 @@ def get_forward_items(qids):
         result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
         result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "")
+        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
     return results
 
 

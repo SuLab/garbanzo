@@ -303,16 +303,21 @@ evidence_statement_model = api.model("evidence_statement_model", {
 
 
 @evidence_ns.route('/<statementId>')
-@evidence_ns.param('statementId', '', default='Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29')
+@evidence_ns.param('statementId', '', default='wds:Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29')
 class GetEvidence(Resource):
     @api.marshal_with(evidence_statement_model)
     @api.doc(description="Retrieve evidence for a specified concept-relationship statement")
-    def get(self, statementId):
+    def get(self, statementId: str):
         """
         Get statements
         """
+        # example url: https://www.wikidata.org/w/api.php?action=wbgetclaims&claim=Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29
         if '$' not in statementId:
             statementId = statementId.replace("-", '$', 1)
+
+        # support both curied and not-curied statement Ids
+        if statementId.lower().startswith("wds:"):
+            statementId = statementId[4:]
 
         params = {'action': 'wbgetclaims',
                   'claim': statementId,
@@ -324,7 +329,8 @@ class GetEvidence(Resource):
         qid = statementId.split("$")[0].upper()
         url = "https://www.wikidata.org/wiki/{}#{}".format(qid, pid)
 
-        return [{"id": statementId, "evidence": url}]
+        # but always return curied IDs
+        return [{"id": "wds:" + statementId, "evidence": url}]
 
 
 if __name__ == '__main__':
