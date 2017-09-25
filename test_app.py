@@ -34,11 +34,11 @@ def test_exact_match():
 
 
 def test_evidence():
-    r = client.get("/evidence/Q7758678%241187917E-AF3E-4A5C-9CED-6F2277568D29")
+    r = client.get("/evidence/Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29")
     result = json.loads(r.data.decode('utf8'))
     assert len(result) == 1
     d = result[0]
-    assert d['id'] == 'Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'
+    assert d['id'] == 'wds:Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'
     assert d['evidence'] == 'https://www.wikidata.org/wiki/Q7758678#P279'
 
 def test_bad_curie():
