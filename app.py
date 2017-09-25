@@ -17,8 +17,7 @@ except ImportError:
 description = """A SPARQL/Wikidata Query API wrapper for Translator
 
 Implements a Knowedge Beacon for the Translator Knowledge Beacon API
-(http://beacon.medgeninformatics.net/api/swagger-ui.html) version 1.0.11
-
+(https://github.com/NCATS-Tangerine/translator-knowledge-beacon) version 1.0.12
 """
 api = Api(app, version='1.0.112', title='Garbanzo API', description=description,
           contact_url="https://github.com/stuppie/garbanzo", contact="gstupp", contact_email="gstupp@scripps.edu")
