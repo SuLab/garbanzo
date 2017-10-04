@@ -99,7 +99,7 @@ def getEntities(qids):
     response_json = r.json()
     if 'error' in response_json:
         raise ValueError(response_json)
-    entities = response_json['entities']
+    entities = response_json.get('entities', dict())
     return entities
 
 

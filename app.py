@@ -76,11 +76,17 @@ class GetConcept(Resource):
     def get(self, conceptId):
         """
         Retrieves details for a specified concept in Wikidata
+        only accepts wd:Q####
         """
-        concept = getConcept(conceptId)
-        details = get_concept_details(conceptId)
-        concept['details'] = details
-        return [concept]
+        if not conceptId.startswith("wd:"):
+            return []
+        try:
+            concept = getConcept(conceptId)
+            details = get_concept_details(conceptId)
+            concept['details'] = details
+            return [concept]
+        except Exception:
+            return []
 
 
 ##########
@@ -274,6 +280,8 @@ class GetStatements(Resource):
         """
         qids = request.args.getlist('c')
         qids = set(chain(*[x.split(",") for x in qids]))
+        # get rid of any non wd identifiers
+        qids = set(x for x in qids if x.startswith("wd:"))
         qids = frozenset([x.strip().replace("wd:", "") for x in qids])
         print(qids)
 
