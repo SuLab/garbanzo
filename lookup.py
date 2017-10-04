@@ -332,19 +332,26 @@ def get_forward_items(qids):
     return results
 
 
-@cached(TTLCache(100, CACHE_TIMEOUT_SEC))
 def get_statements(qids, keywords=None, types=None):
     # keywords matches all statements whose labels match ANY of the keywords
     # types matches all statements whose subject or object type matches ANY of the types
+    datapage = query_statements(qids)
+    return filter_statements(datapage, keywords=keywords, types=types)
 
+
+@cached(TTLCache(100, CACHE_TIMEOUT_SEC))
+def query_statements(qids):
     items = get_forward_items(qids) + get_reverse_items(qids)
-
     datapage = [{'id': item['id'],
                  'subject': {'id': item['item'], 'name': item['itemLabel']},
                  'predicate': {'id': item['property'], 'name': item['propertyLabel']},
                  'object': {'id': item['value'], 'name': item['valueLabel']},
                  } for item in items]
+    datapage = sorted(datapage, key=lambda x: x['id'])
+    return datapage
 
+
+def filter_statements(datapage, keywords=None, types=None):
     # filter results using the keywords
     if keywords:
         datapage2 = []
