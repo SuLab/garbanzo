@@ -280,7 +280,6 @@ def get_reverse_items(qids):
     WHERE {
       values ?value {{values}}
       ?item ?propertyclaim ?id .
-      ?property wikibase:propertyType wikibase:WikibaseItem .
       ?property wikibase:claim ?propertyclaim .
       ?id ?b ?value .
       FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
@@ -293,6 +292,7 @@ def get_reverse_items(qids):
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
         result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
         result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
+    results = [x for x in results if x['id'].startswith("wds:Q")]
     return results
 
 
@@ -316,7 +316,6 @@ def get_forward_items(qids):
     WHERE {
       values ?item {{values}}
       ?item ?propertyclaim ?id .
-      ?property wikibase:propertyType wikibase:WikibaseItem .
       ?property wikibase:claim ?propertyclaim .
       ?id ?b ?value .
       FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
@@ -324,11 +323,13 @@ def get_forward_items(qids):
     }""".replace("{values}", values)
     d = execute_sparql_query(query_str)['results']['bindings']
     results = [{k: v['value'] for k, v in item.items()} for item in d]
+    results = [x for x in results if x['value'].startswith("http://www.wikidata.org/entity/")]
     for result in results:
         result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
         result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
         result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
         result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
+    results = [x for x in results if x['id'].startswith("wds:Q")]
     return results
 
 
@@ -366,11 +367,11 @@ def filter_statements(datapage, keywords=None, types=None):
         datapage = datapage2
 
     if types:
-        concepts = getConcepts(
-            frozenset([x['subject']['id'] for x in datapage] + [x['object']['id'] for x in datapage]))
+        all_qids = frozenset([x['subject']['id'] for x in datapage] + [x['object']['id'] for x in datapage])
+        concepts = getConcepts(all_qids)
         type_map = {k: v['semanticGroup'] for k, v in concepts.items()}
         datapage = [x for x in datapage if
-                    any(t in [type_map[x['subject']['id']], type_map[x['object']['id']]] for t in types)]
+                    any(t in [type_map.get(x['subject']['id'],''), type_map.get(x['object']['id'],'')] for t in types)]
 
     return datapage
 

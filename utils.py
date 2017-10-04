@@ -28,7 +28,7 @@ def always_curie(s):
 
 
 def always_qid(s):
-    assert s.startswith("Q") or s.startswith("wd:")
+    assert s.startswith("Q") or s.startswith("wd:"), s
     return s.replace("wd:", "") if s.startswith("wd:") else s
 
 # For future reference : https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
