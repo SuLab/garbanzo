@@ -29,8 +29,7 @@ def test_get_concepts():
 def test_exact_match():
     r = client.get("/exactmatches/MESH%3AD009755")
     d = json.loads(r.data.decode('utf8'))
-    assert all(x in d for x in ['wd:Q7758678', 'UMLS:C0028077', 'ICD10CM:H53.60', 'MESH:D009755', 'DOID:8499',
-                                'ICD9:368.60', 'ICD10CM:H53.6', 'ICD9:368.6']), d
+    assert all(x in d for x in ['wd:Q7758678', 'UMLS:C0028077', 'ICD10CM:H53.60', 'DOID:8499', 'ICD10CM:H53.6']), d
 
 
 def test_evidence():
@@ -40,6 +39,7 @@ def test_evidence():
     d = result[0]
     assert d['id'] == 'wds:Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29'
     assert d['evidence'] == 'https://www.wikidata.org/wiki/Q7758678#P279'
+
 
 def test_bad_curie():
     r = client.get("/exactmatches/GREG%3AD009755")
