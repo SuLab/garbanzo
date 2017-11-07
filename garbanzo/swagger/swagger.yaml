@@ -11,7 +11,8 @@ info:
   license:
     name: "MIT License"
     url: "http://opensource.org/licenses/MIT"
-host: "localhost:8080"
+host: "garbanzo.sulab.org"
+#host: "localhost:8080"
 basePath: "/"
 tags:
 - name: "summary"
