@@ -395,7 +395,11 @@ def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):
         return []
 
     # get detailed info about the found concepts
-    dataPage = list(getConcepts(tuple(items)).values())
+    dataPage_dict = getConcepts(tuple(items))
+
+    # reorder dataPage based on the original order from wd
+    dataPage = [dataPage_dict[x] for x in items]
+
     print("semgroups: {}".format(semgroups))
     if semgroups:
         dataPage = [item for item in dataPage if item['semanticGroup'] and (
