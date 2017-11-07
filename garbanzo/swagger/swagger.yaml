@@ -1,0 +1,593 @@
+---
+swagger: "2.0"
+info:
+  description: "Implements a Knowedge Beacon for the Translator Knowledge Beacon API
+(https://github.com/NCATS-Tangerine/translator-knowledge-beacon) version 1.0.15"
+  version: "1.0.15"
+  title: "Garbanzo Translator Knowledge Beacon API"
+  contact:
+    url: "garbanzo.sulab.org"
+    email: "gstupp@scripps.edu"
+  license:
+    name: "MIT License"
+    url: "http://opensource.org/licenses/MIT"
+host: "localhost:8080"
+basePath: "/"
+tags:
+- name: "summary"
+  description: "Summary statistics about the knowledge source"
+- name: "concepts"
+  description: "Queries for concepts"
+- name: "predicates"
+  description: "Queries for predicates"
+- name: "exactmatches"
+  description: "Queries for exactly matching concepts *sensa*-SKOS; http://www.w3.org/2004/02/skos/core#exactMatch"
+- name: "statements"
+  description: "Queries for concept-relationship statements"
+- name: "evidence"
+  description: "Queries for references cited as evidence for statements"
+schemes:
+- "https"
+produces:
+- "application/json"
+paths:
+  /types:
+    get:
+      tags:
+      - "summary"
+      description: "Get a list of types and # of instances in the knowledge source,\
+        \ and a link to the API call for the list of equivalent terminology\n"
+      operationId: "linked_types"
+      parameters: []
+      responses:
+        200:
+          description: "Successful response with types and frequency returned\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Summary"
+          examples:
+            application/json:
+            - id: "CHEM"
+              frequency: 12355
+              idmap: "http://myservice.net/api/v1/exactmatches/CHEM"
+            - id: "ANAT"
+              frequency: 1234
+              idmap: "http://myservice.net/api/v1/exactmatches/ANAT"
+      x-swagger-router-controller: "garbanzo.controllers.summary_controller"
+  /concepts/{conceptId}:
+    get:
+      tags:
+      - "concepts"
+      description: "Retrieves details for a specified concepts in the system, as specified\
+        \ by a (url-encoded) CURIE identifier of a concept known the given knowledge\
+        \ source.\n"
+      operationId: "get_concept_details"
+      parameters:
+      - name: "conceptId"
+        in: "path"
+        description: "(url-encoded) CURIE identifier of concept of interest"
+        required: true
+        type: "string"
+        x-example: "wd:Q18557952"
+      responses:
+        200:
+          description: "Successful response with concept details returned\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/ConceptWithDetails"
+          examples:
+            application/json:
+            - id: "wd:Q14883734"
+              name: "WRN"
+              semanticGroup: "GENE"
+              synonyms: []
+              definition: "Werner Syndrome Gene"
+              details: []
+      x-swagger-router-controller: "garbanzo.controllers.concepts_controller"
+  /concepts:
+    get:
+      tags:
+      - "concepts"
+      description: "Retrieves a (paged) list of concepts in the system\n"
+      operationId: "get_concepts"
+      parameters:
+      - name: "keywords"
+        in: "query"
+        description: "a (urlencoded) space delimited set of keywords or substrings\
+          \ against which to match concept names and synonyms"
+        required: true
+        type: "string"
+        x-example: "night blindness"
+      - name: "semanticGroups"
+        in: "query"
+        description: "a (url-encoded) space-delimited set of semantic groups (specified\
+          \ as codes CHEM, GENE, ANAT, etc.) to which to constrain concepts matched\
+          \ by the main keyword search (see [Semantic Groups](https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt)\
+          \ for the full list of codes)\n"
+        required: false
+        type: "string"
+        x-example: "DISO CHEM"
+      - name: "pageNumber"
+        in: "query"
+        description: "(1-based) number of the page to be returned in a paged set of\
+          \ query\nresults\n"
+        required: false
+        type: "integer"
+      - name: "pageSize"
+        in: "query"
+        description: "number of concepts per page to be returned in a paged set of\
+          \ query\nresults\n"
+        required: false
+        type: "integer"
+      responses:
+        200:
+          description: "Successful response with concept list returned\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Concept"
+          examples:
+            application/json:
+            - id: "wd:Q6591532"
+              name: "WRN protein, human"
+              semanticGroup: "CHEM"
+              synonyms:
+              - "RecQ3"
+              - "Werner Syndrome ATP-Dependent Helicase"
+              - "RECQL2 protein, human"
+              - "EC 3.1.-.-"
+              - "WRN protein, human"
+              - "WRN"
+              - "Exonuclease WRN"
+              - "Werner Syndrome Protein"
+              - "RecQ Protein-Like 2"
+              - "EC 3.6.4.12"
+              - "RECQ3 protein, human"
+              - "Werner syndrome helicase, human"
+              - "WRN Protein"
+              - "DNA Helicase, RecQ-Like Type 3"
+              definition: "Werner syndrome ATP-dependent helicase (1432 aa, ~162 kDa)\
+                \ is encoded by the human WRN gene. This protein plays a role in both\
+                \ magnesium and ATP-dependent DNA-helicase activity and 3\\'->5\\\
+                ' exonuclease activity towards double-stranded DNA with a 5\\'-overhang."
+            - id: "wd:Q18042562"
+              name: "WRNIP1"
+              semanticGroup: "GENE"
+              synonyms:
+              - "WHIP"
+              - "Werner helicase interacting protein 1"
+              - "WRNIP1"
+              - "bA420G6.2"
+              definition: "human gene"
+            - id: "wd:Q14883734"
+              name: "WRN"
+              semanticGroup: "GENE"
+              synonyms:
+              - "RECQ3"
+              - "RECQL3"
+              - "Werner syndrome RecQ like helicase"
+              - "RECQL2"
+              definition: "human gene"
+            - id: "wd:Q1154619"
+              name: "Werner Syndrome"
+              semanticGroup: "DISO"
+              synonyms:
+              - "Werner Syndrome"
+              - "Pangeria"
+              - "Syndrome, Werner"
+              - "Progeria, Adult"
+              - "Werner Syndrome [Disease/Finding]"
+              - "Werner syndrome (disorder)"
+              - "adult progeria"
+              - "Werner"
+              - "syndromes werner"
+              - "Syndrome, Werner\\'s"
+              - "WRN"
+              - "Werner\\'s syndrome"
+              - "adults progeria"
+              - "Werner syndrome (adult progeria) (diagnosis)"
+              - "Werner syndrome (adult progeria)"
+              - "Syndrome, Werners"
+              - "Adult premature aging syndrome"
+              - "syndromes werner\\'s"
+              - "Werners Syndrome"
+              - "syndrome werner"
+              - "Progeria of the adult"
+              - "WS"
+              - "syndromes werners"
+              - "Adult premature ageing syndrome"
+              definition: "autosomal recessive disorder that causes premature aging\
+                \ in adults, characterized by sclerodermal skin changes, cataracts,\
+                \ subcutaneous calcifications, muscular atrophy, a tendency to diabetes\
+                \ mellitus, aged appearance of the face, baldness, and a high incidence\
+                \ of neoplastic disease."
+      x-swagger-router-controller: "garbanzo.controllers.concepts_controller"
+  /predicates:
+    get:
+      tags:
+      - "predicates"
+      description: "Get a list of predicates used in statements issued by the knowledge\
+        \ source\n"
+      operationId: "get_predicates"
+      parameters: []
+      responses:
+        200:
+          description: "Successful response with predicates with CURIE and definitions\
+            \ indexed by beacons which support the relation\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Predicate"
+          examples:
+            application/json:
+            - id: "wd:P123"
+              name: "interacts with"
+              definition: "influences in some manner"
+            - id: "wd:P456"
+              name: "has phenotype"
+              definition: "exhibits biological morphology or behaviour"
+      x-swagger-router-controller: "garbanzo.controllers.predicates_controller"
+  /exactmatches/{conceptId}:
+    get:
+      tags:
+      - "exactmatches"
+      description: "Retrieves a list of qualified identifiers of \"exact match\" concepts,\
+        \ [sensa SKOS](http://www.w3.org/2004/02/skos/core#exactMatch) associated\
+        \ with a specified (url-encoded) CURIE (without brackets) concept object identifier,\
+        \  typically, of a concept selected from the list of concepts originally returned\
+        \ by a /concepts API call on a given KS. \n"
+      operationId: "get_exact_matches_to_concept"
+      parameters:
+      - name: "conceptId"
+        in: "path"
+        description: "(url-encoded) CURIE identifier of the concept to be matched"
+        required: true
+        type: "string"
+        x-example: "wd:Q14883734"
+      responses:
+        200:
+          description: "Successful response returns a set of [CURIE](https://www.w3.org/TR/curie/)\
+            \ identifiers to 3rd party concepts defined outside of the local KS, which\
+            \ are deemed semantic exact matches [*sensa*-SKOS](http://www.w3.org/2004/02/skos/core#exactMatch)\
+            \ to  the specified identified concept (maybe an empty set?)\n"
+          schema:
+            type: "array"
+            items:
+              type: "string"
+          examples:
+            application/json:
+            - "wd:Q14883734"
+            - "NCBIGene:7486"
+      x-swagger-router-controller: "garbanzo.controllers.exactmatches_controller"
+  /exactmatches:
+    get:
+      tags:
+      - "exactmatches"
+      description: "Given an input list of [CURIE](https://www.w3.org/TR/curie/) identifiers\
+        \ of known exactly matched concepts [*sensa*-SKOS](http://www.w3.org/2004/02/skos/core#exactMatch),\
+        \ retrieves the list of [CURIE](https://www.w3.org/TR/curie/) identifiers\
+        \ of additional concepts that are deemed by the given knowledge source to\
+        \ be exact matches to one or more of the input concepts **plus** whichever\
+        \ identifiers from the input list which specifically matched these new additional\
+        \ concepts.  If an empty set is returned, the it can be assumed that the given\
+        \  knowledge source does not know of any new equivalent concepts matching\
+        \ the input set.\n"
+      operationId: "get_exact_matches_to_concept_list"
+      parameters:
+      - name: "c"
+        in: "query"
+        description: "set of [CURIE-encoded](https://www.w3.org/TR/curie/) identifiers\
+          \ of exactly matching concepts, to be used in a search for additional exactly\
+          \ matching concepts [*sensa*-SKOS](http://www.w3.org/2004/02/skos/core#exactMatch).\n"
+        required: true
+        type: "array"
+        items:
+          type: "string"
+        x-examples: ["MESH:D009755", "wd:Q14883734"]
+      responses:
+        200:
+          description: "Successful response returns a set of [CURIE-encoded](https://www.w3.org/TR/curie/)\
+            \ identifiers of concepts (with supporting evidence code and reference)\
+            \ matching at least one identifier in the input list of known exactly\
+            \ matched concepts [*sensa*-SKOS](http://www.w3.org/2004/02/skos/core#exactMatch).\
+            \ Each concept identifier is returned with  the full list of any additional\
+            \ associated [CURIE-encoded](https://www.w3.org/TR/curie/) identifiers\
+            \ of exact match concepts known to the given Knowledge Source.\n"
+          schema:
+            type: "array"
+            items:
+              type: "string"
+              description: "[CURIE](https://www.w3.org/TR/curie/) identifier of an\
+                \ exact matching concept not yet listed in the input set of exact\
+                \ matching concepts.\n"
+          examples:
+            application/json:
+            - "wd:Q14883734"
+            - "NCBIGene:7486"
+      x-swagger-router-controller: "garbanzo.controllers.exactmatches_controller"
+  /statements:
+    get:
+      tags:
+      - "statements"
+      description: "Given a specified set of [CURIE-encoded](https://www.w3.org/TR/curie/)\
+        \  'source' ('s') concept identifiers,  retrieves a paged list of relationship\
+        \ statements where either the subject or object concept matches any of the\
+        \ input 'source' concepts provided.  Optionally, a set of 'target' ('t') concept\
+        \  identifiers may also be given, in which case a member of the 'target' identifier\
+        \ set should match the concept opposing the 'source' in the  statement, that\
+        \ is, if the'source' matches a subject, then the  'target' should match the\
+        \ object of a given statement (or vice versa).\n"
+      operationId: "get_statements"
+      parameters:
+      - name: "s"
+        in: "query"
+        description: "a set of [CURIE-encoded](https://www.w3.org/TR/curie/) identifiers\
+          \ of  'source' concepts possibly known to the beacon. Unknown CURIES should\
+          \ simply be ignored (silent match failure).\n"
+        required: true
+        type: "array"
+        items:
+          type: "string"
+        x-example: ["wd:Q133696", "wd:Q42"]
+      - name: "relations"
+        in: "query"
+        description: "a (url-encoded, space-delimited) string of predicate relation\
+          \ identifiers with which to constrain the statement relations retrieved\
+          \  for the given query seed concept. The predicate ids sent should  be as\
+          \ published by the beacon-aggregator by the /predicates API endpoint.\n"
+        required: false
+        type: "string"
+      - name: "t"
+        in: "query"
+        description: "(optional) an array set of [CURIE-encoded](https://www.w3.org/TR/curie/)\
+          \  identifiers of 'target' concepts possibly known to the beacon.  Unknown\
+          \ CURIEs should simply be ignored (silent match failure).\n"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+      - name: "keywords"
+        in: "query"
+        description: "a (url-encoded, space-delimited) string of keywords or substrings\
+          \ against which to match the subject, predicate or object names of the set\
+          \ of concept-relations matched by any of the input exact matching concepts\n"
+        required: false
+        type: "string"
+      - name: "semanticGroups"
+        in: "query"
+        description: "a (url-encoded, space-delimited) string of semantic groups (specified\
+          \ as codes CHEM, GENE, ANAT, etc.) to which to constrain the subject or\
+          \ object concepts associated with the query seed concept (see [Semantic\
+          \ Groups](https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt) for the full\
+          \ list of codes)\n"
+        required: false
+        type: "string"
+      - name: "pageNumber"
+        in: "query"
+        description: "(1-based) number of the page to be returned in a paged set of\
+          \ query\nresults\n"
+        required: false
+        type: "integer"
+      - name: "pageSize"
+        in: "query"
+        description: "number of concepts per page to be returned in a paged set of\
+          \ query\nresults\n"
+        required: false
+        type: "integer"
+      responses:
+        200:
+          description: "Successful response returns a list of concept-relations where\
+            \ there is an exact match of an input concept identifier either to the\
+            \ subject or object concepts of the statement\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Statement"
+          examples:
+            application/json:
+            - source: "semmeddb"
+              id: "kb:12345"
+              subject:
+                id:
+                - "wd:Q14912054"
+                name: "KCNJ11"
+                semanticGroup: "GENE"
+              predicate:
+                id:
+                - "kbp:10"
+                name: "Causes"
+              object:
+                id:
+                - "wd:Q2898645"
+                name: "Neonatal diabetes mellitus"
+                semanticGroup: "DISO"
+      x-swagger-router-controller: "garbanzo.controllers.statements_controller"
+  /evidence/{statementId}:
+    get:
+      tags:
+      - "evidence"
+      description: "Retrieves a (paged) list of annotations cited as evidence for\
+        \ a specified concept-relationship statement\n"
+      operationId: "get_evidence"
+      parameters:
+      - name: "statementId"
+        in: "path"
+        description: "(url-encoded) CURIE identifier of the concept-relationship statement\
+          \ (\"assertion\", \"claim\") for which associated evidence is sought\n"
+        required: true
+        type: "string"
+        x-example: "wds:Q7758678$1187917E-AF3E-4A5C-9CED-6F2277568D29"
+      - name: "keywords"
+        in: "query"
+        description: "(url-encoded, space delimited) keyword filter to apply against\
+          \ the label field of the annotation\n"
+        required: false
+        type: "string"
+      - name: "pageNumber"
+        in: "query"
+        description: "(1-based) number of the page to be returned in a paged set of\
+          \ query\nresults\n"
+        required: false
+        type: "integer"
+      - name: "pageSize"
+        in: "query"
+        description: "number of cited references per page to be returned in a paged\
+          \ set of query results\n"
+        required: false
+        type: "integer"
+      responses:
+        200:
+          description: "successful call returns a list of annotation with metadata\n"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Annotation"
+          examples:
+            application/json:
+            - id:
+              - "pmid:22781086"
+              label: "Neonatal diabetes mellitus and congenital diaphragmatic hernia\
+                \ coincidence or concurrent etiology?"
+              type: "TAS"
+              date: "2012-07-10T00:00:00.000Z"
+      x-swagger-router-controller: "garbanzo.controllers.evidence_controller"
+definitions:
+  Concept:
+    properties:
+      id:
+        type: "string"
+        description: "local object identifier for the concept in the specified knowledge\
+          \ source database\n"
+      name:
+        type: "string"
+        description: "canonical human readable name of the concept\n"
+      semanticGroup:
+        type: "string"
+        description: "concept semantic type\n"
+      synonyms:
+        type: "array"
+        description: "list of synonyms for concept\n"
+        items:
+          type: "string"
+      definition:
+        type: "string"
+        description: "concept definition\n"
+  ConceptWithDetails:
+    properties:
+      id:
+        type: "string"
+        description: "local object identifier for the concept in the specified knowledge\
+          \ source database\n"
+      name:
+        type: "string"
+        description: "canonical human readable name of the concept\n"
+      semanticGroup:
+        type: "string"
+        description: "concept semantic type\n"
+      synonyms:
+        type: "array"
+        description: "list of synonyms for concept\n"
+        items:
+          type: "string"
+      definition:
+        type: "string"
+        description: "concept definition\n"
+      details:
+        type: "array"
+        items:
+          $ref: "#/definitions/ConceptDetail"
+  StatementPredicate:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier of predicate resource\n"
+      name:
+        type: "string"
+        description: "human readable label of concept"
+  Statement:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier for statement (can be used to retrieve\
+          \ associated evidence)"
+      subject:
+        $ref: "#/definitions/StatementSubject"
+      predicate:
+        $ref: "#/definitions/StatementPredicate"
+      object:
+        $ref: "#/definitions/StatementObject"
+  Summary:
+    properties:
+      id:
+        type: "string"
+        description: "the type \n"
+      idmap:
+        type: "string"
+        description: "The URL to execute the exactmatches API call on the id"
+      frequency:
+        type: "integer"
+        description: "the number of instances of the specified type\n"
+  ConceptDetail:
+    properties:
+      tag:
+        type: "string"
+        description: "property name\n"
+      value:
+        type: "string"
+        description: "property value\n"
+  StatementObject:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier of object concept\n"
+      name:
+        type: "string"
+        description: "human readable label of object concept"
+      semanticGroup:
+        type: "string"
+        description: "a semantic group for the object concept (specified as a code\
+          \ CHEM, GENE, etc. - see [Semantic Groups](https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt)\
+          \ for the full list of codes)\n"
+  Annotation:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier to an associated external resources\
+          \ (e.g. PMID of a pubmed citation)\n"
+      label:
+        type: "string"
+        description: "canonical human readable and searchable label of the annotation\
+          \ (i.e. comment, matched sentence, etc.)\n"
+      type:
+        type: "string"
+        description: "Gene Ontology Evidence Code (http://www.geneontology.org/page/guide-go-evidence-codes)\n"
+      date:
+        type: "string"
+        description: "publication date of annotation (generally of format 'yyyy-mm-dd')\n"
+  Predicate:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier of predicate resource\n"
+      name:
+        type: "string"
+        description: "human readable name of predicate relation\n"
+      definition:
+        type: "string"
+        description: "human readable definition of predicate relation provided by\
+          \ this beacon\n"
+  StatementSubject:
+    properties:
+      id:
+        type: "string"
+        description: "CURIE-encoded identifier of concept\n"
+      name:
+        type: "string"
+        description: "human readable label of subject concept"
+      semanticGroup:
+        type: "string"
+        description: "a semantic group for the subject concept (specified as a code\
+          \ CHEM, GENE, etc. - see [Semantic Groups](https://metamap.nlm.nih.gov/Docs/SemGroups_2013.txt)\
+          \ for the full list of codes)\n"

@@ -3,7 +3,8 @@ from itertools import chain
 from cachetools import cached, TTLCache
 import requests
 
-from utils import execute_sparql_query, always_curie, always_qid, get_types_from_qids, get_types_from_qids, qid_semgroup
+from garbanzo.utils import execute_sparql_query, always_curie, always_qid, get_types_from_qids, get_types_from_qids, \
+    qid_semgroup
 
 from wikicurie import wikicurie
 
@@ -200,11 +201,10 @@ def getConcepts(qids):
 
 
 @cached(TTLCache(CACHE_SIZE, CACHE_TIMEOUT_SEC))
-def get_all_types(label_type='wd'):
+def get_all_types():
     """
     Get all semantic group types, and their counts.
-    :param label_type: "wd" if wikidata label names, "g" for garbanzo semantic type group names, "b" for both
-    :return: {"id": [], "count": xx} for all entity types in garbanzo
+    :return: {"id": [], "frequency": xx} for all entity types in garbanzo
     """
     agg = {}
     for (entity_id, group_name) in qid_semgroup.items():
@@ -218,25 +218,10 @@ def get_all_types(label_type='wd'):
                     'sum': int(execute_sparql_query(query_str)['results']['bindings'][0]['count']['value']),
                     'group': group}
 
-    # this is overkill - once the knowledge beacon spec is fully fleshed out, we can make this way simpler...as of now
-    # it's still fluid, so this handles all possible output formatting options, triggered by the label_type parameter
-    _ret = []
-    for (k, v) in agg.items():
-        if label_type == 'w':
-            _name = getConceptLabel(k)
-            if _name:
-                _ret.append({'id': '{} wd:{}'.format(_name, k), 'count': v['sum']})
-            else:
-                _ret.append({'id': 'wd:{}'.format(k), 'count': v['sum']})
-        elif label_type == 'g':
-            _ret.append({'id': '{} wd:{}'.format(v['group'], k), 'count': v['sum']})
-        elif label_type == 'b':
-            _name = getConceptLabel(k)
-            if _name:
-                _ret.append({'id': '{} {} wd:{}'.format(v['group'], _name, k), 'count': v['sum']})
-            else:
-                _ret.append({'id': '{} wd:{}'.format(v['group'], k), 'count': v['sum']})
-    return _ret
+    # ret = [{'id': '{} wd:{}'.format(v['group'], k), 'frequency': v['sum']} for k,v in agg.items()]
+    ret = [{'id': 'wd:{}'.format(k),
+            'frequency': v['sum']} for k, v in agg.items()]
+    return ret
 
 
 @cached(TTLCache(CACHE_SIZE, CACHE_TIMEOUT_SEC))
@@ -344,9 +329,12 @@ def get_statements(qids, keywords=None, types=None):
 def query_statements(qids):
     items = get_forward_items(qids) + get_reverse_items(qids)
     datapage = [{'id': item['id'],
-                 'subject': {'id': item['item'], 'name': item['itemLabel']},
-                 'predicate': {'id': item['property'], 'name': item['propertyLabel']},
-                 'object': {'id': item['value'], 'name': item['valueLabel']},
+                 'subject': {'id': item['item'], 'name': item['itemLabel'],
+                             'semantic_group': ''},  # TODO: implement
+                 'predicate': {'id': item['property'], 'name': item['propertyLabel'],
+                               'semantic_group': ''},  # TODO: implement
+                 'object': {'id': item['value'], 'name': item['valueLabel'],
+                            'semantic_group': ''},  # TODO: implement
                  } for item in items]
     datapage = sorted(datapage, key=lambda x: x['id'])
     return datapage
@@ -371,7 +359,8 @@ def filter_statements(datapage, keywords=None, types=None):
         concepts = getConcepts(all_qids)
         type_map = {k: v['semanticGroup'] for k, v in concepts.items()}
         datapage = [x for x in datapage if
-                    any(t in [type_map.get(x['subject']['id'],''), type_map.get(x['object']['id'],'')] for t in types)]
+                    any(t in [type_map.get(x['subject']['id'], ''), type_map.get(x['object']['id'], '')] for t in
+                        types)]
 
     return datapage
 
