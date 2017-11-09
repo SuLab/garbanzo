@@ -330,11 +330,10 @@ def query_statements(qids):
     items = get_forward_items(qids) + get_reverse_items(qids)
     datapage = [{'id': item['id'],
                  'subject': {'id': item['item'], 'name': item['itemLabel'],
-                             'semantic_group': ''},  # TODO: implement
-                 'predicate': {'id': item['property'], 'name': item['propertyLabel'],
-                               'semantic_group': ''},  # TODO: implement
+                             'semanticGroup': ''},  # TODO: implement
+                 'predicate': {'id': item['property'], 'name': item['propertyLabel']},
                  'object': {'id': item['value'], 'name': item['valueLabel'],
-                            'semantic_group': ''},  # TODO: implement
+                            'semanticGroup': ''},  # TODO: implement
                  } for item in items]
     datapage = sorted(datapage, key=lambda x: x['id'])
     return datapage
