@@ -28,14 +28,7 @@ def get_exact_matches_to_concept(conceptId):
     claims = getEntitiesCurieClaims(qids)
     claims = list(chain(*claims.values()))
     claims = [claim.to_dict() for claim in claims]
-    for claim in claims:
-        claim['evidence'] = {'id': claim['id']}
-        claim['id'] = claim['datavaluecurie']
-        del claim['datavaluecurie']
-        if 'references' in claim:
-            del claim['references']
-
-    response_ids = set(x['id'] for x in claims) | set(qids)
+    response_ids = set(x['datavaluecurie'] for x in claims) | set(qids)
     return list(response_ids)
 
 
@@ -49,32 +42,30 @@ def get_exact_matches_to_concept_list(c):
     :rtype: List[str]
     """
     # Retrieves identifiers that are specified as "external-ids" with the associated input identifiers
-    concepts = connexion.request.args.get("c", '')
-    concepts = concepts.split(" ") if concepts else []
-    input_concepts = set(concepts)
-    curies = set(x for x in concepts if not x.startswith("wd:"))
+
+    # c = ["DOID:1234", "MESH:1234", "wd:Q1049021"]
+    input_concepts = set(c)
+
+    # for curies specifically, get the matching qids
+    curies = set(x for x in input_concepts if not x.startswith("wd:"))
     equiv_qid = {curie: get_equiv_item(curie) for curie in curies}
+    # and add in the input qids
+    input_qids = set(x for x in input_concepts if x.startswith("wd:"))
+    qids = set(chain(*equiv_qid.values())) | input_qids
 
-    qids = set(x for x in concepts if x.startswith("wd:"))
-    qids.update(set(chain(*equiv_qid.values())))
+    # get the xrefs for the qids
+    claims = getEntitiesCurieClaims(qids)
+    qid_claims = {"wd:" + qid: [claim.datavaluecurie for claim in c] for qid, c in claims.items()}
+    qids_no_matches = {k for k,v in qid_claims.items() if not v}
+    qid_claims = {k:v for k,v in qid_claims.items() if v}
+    new_ids = set(chain(*qid_claims.values()))
+    new_ids.update(qids)
 
-    if not qids:
+    # from input_qids, remove the qids that matched nothing
+    new_ids = new_ids - qids_no_matches
+
+    # if no new matching concepts, return empty list
+    if all(x in input_concepts for x in new_ids):
         return []
 
-    # get all xrefs from these qids
-    claims = getEntitiesCurieClaims(qids)
-    claims = list(chain(*claims.values()))
-    claims = [claim.to_dict() for claim in claims]
-    for claim in claims:
-        claim['evidence'] = {'id': claim['id']}
-        claim['id'] = claim['datavaluecurie']
-        del claim['datavaluecurie']
-        if 'references' in claim:
-            del claim['references']
-
-    # figure out all ids that we got, make sure the wd curie is in it, then remove the input curies
-    response_ids = set(x['id'] for x in claims)
-    response_ids.update(qids)
-    response_ids = response_ids - input_concepts
-
-    return list(response_ids)
+    return list(new_ids)
