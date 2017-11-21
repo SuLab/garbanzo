@@ -326,8 +326,10 @@ def _query_statements(s, t=None, relations=None, direction="f"):
 
 
 def filter_statements(datapage, keywords=None, types=None):
-    # filter results using the keywords
+    # filter results using the keywords (a list of strings)
+    # types is a list of strings
     if keywords:
+        assert not isinstance(keywords, str)
         datapage2 = []
         for dp in datapage:
             # treat it as one string
@@ -340,6 +342,7 @@ def filter_statements(datapage, keywords=None, types=None):
         datapage = datapage2
 
     if types:
+        assert not isinstance(types, str)
         datapage = [x for x in datapage if
                     any(t in x['subject']['semanticGroup'] + x['object']['semanticGroup'] for t in
                         types)]

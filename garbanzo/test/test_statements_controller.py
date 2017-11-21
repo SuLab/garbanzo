@@ -22,7 +22,7 @@ class TestStatementsController(BaseTestCase):
                              ('relations', ''),
                              ('t', ''),
                              ('keywords', ''),
-                             ('semanticGroups', 'LIVB'),
+                             ('semanticGroups', 'LIVB FOO'),
                              ('pageNumber', 1),
                              ('pageSize', 10)])
         response = self.client.open('/statements',
