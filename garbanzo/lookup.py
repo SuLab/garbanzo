@@ -3,8 +3,9 @@ from itertools import chain
 from cachetools import cached, TTLCache
 import requests
 
-from garbanzo.utils import execute_sparql_query, always_curie, always_qid, get_types_from_qids, get_types_from_qids, \
-    qid_semgroup
+from garbanzo.utils import execute_sparql_query, always_curie, always_qid, get_semgroups_from_qids, \
+    get_semgroups_from_qids, \
+    qid_semgroup, make_frozenset
 
 from wikicurie import wikicurie
 
@@ -148,7 +149,7 @@ def get_types(claims):
     for claim in claims:
         if claim['property'] == 'P31':
             instances.add(claim['datavalue'])
-    types = get_types_from_qids(instances)
+    types = get_semgroups_from_qids(instances)
     return list(types)
 
 
@@ -193,7 +194,7 @@ def getConcepts(qids):
             instances = [x['mainsnak']['datavalue']['value']['id'] for x in wd['claims']['P31']]
             type_qids = set(instances)
             print(type_qids)
-            d['semanticGroup'] = ' '.join(get_types_from_qids(type_qids))
+            d['semanticGroup'] = ' '.join(get_semgroups_from_qids(type_qids))
         else:
             d['semanticGroup'] = ''
         dd["wd:" + qid] = d
@@ -245,98 +246,83 @@ def get_equiv_item(curie):
     return equiv_qids
 
 
-def get_reverse_items(qids):
-    """
-    Get a items where the input qids are used as the object
-    :param qids: list of qids (e.g. ('Q133696', 'Q18557952'))
-    :return: list of
-     {'id': 'Q26738259-2f0e5941-494d-ba20-1233-e03023321846',
-      'item': 'wd:Q26738259',
-      'itemLabel': 'congenital color blindness',
-      'property': 'wd:P279',
-      'propertyLabel': 'subclass of',
-      'value': 'wd:Q133696',
-      'valueLabel': 'color blindness'}
-    """
-    # qids = ('Q133696', 'Q18557952')
-    values = " ".join(["wd:" + qid for qid in qids])
-    query_str = """
-    SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
-    WHERE {
-      values ?value {{values}}
-      ?item ?propertyclaim ?id .
-      ?property wikibase:claim ?propertyclaim .
-      ?id ?b ?value .
-      FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
-    }""".replace("{values}", values)
-    d = execute_sparql_query(query_str)['results']['bindings']
-    results = [{k: v['value'] for k, v in item.items()} for item in d]
-    for result in results:
-        result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
-    results = [x for x in results if x['id'].startswith("wds:Q")]
-    return results
-
-
-def get_forward_items(qids):
-    """
-    Get a items where the input qids are used as the subject
-    :param qids: list of qids (e.g. ('Q133696', 'Q18557952'))
-    :return: list of
-     {'id': 'Q26738259-2f0e5941-494d-ba20-1233-e03023321846',
-      'item': 'wd:Q26738259',
-      'itemLabel': 'congenital color blindness',
-      'property': 'wd:P279',
-      'propertyLabel': 'subclass of',
-      'value': 'wd:Q133696',
-      'valueLabel': 'color blindness'}
-    """
-    # qids = ('Q133696', 'Q18557952')
-    values = " ".join(["wd:" + qid for qid in qids])
-    query_str = """
-    SELECT ?item ?itemLabel ?property ?propertyLabel ?value ?valueLabel ?id
-    WHERE {
-      values ?item {{values}}
-      ?item ?propertyclaim ?id .
-      ?property wikibase:claim ?propertyclaim .
-      ?id ?b ?value .
-      FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
-    }""".replace("{values}", values)
-    d = execute_sparql_query(query_str)['results']['bindings']
-    results = [{k: v['value'] for k, v in item.items()} for item in d]
-    results = [x for x in results if x['value'].startswith("http://www.wikidata.org/entity/")]
-    for result in results:
-        result['item'] = result['item'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['property'] = result['property'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['value'] = result['value'].replace("http://www.wikidata.org/entity/", "wd:")
-        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
-    results = [x for x in results if x['id'].startswith("wds:Q")]
-    return results
-
-
-def get_statements(qids, keywords=None, types=None):
-    # keywords matches all statements whose labels match ANY of the keywords
-    # types matches all statements whose subject or object type matches ANY of the types
-    datapage = query_statements(qids)
-    return filter_statements(datapage, keywords=keywords, types=types)
-
-
+@make_frozenset
 @cached(TTLCache(100, CACHE_TIMEOUT_SEC))
-def query_statements(qids):
-    items = get_forward_items(qids) + get_reverse_items(qids)
-    datapage = [{'id': item['id'],
-                 'subject': {'id': item['item'], 'name': item['itemLabel'],
-                             'semanticGroup': ''},  # TODO: implement
-                 'predicate': {'id': item['property'], 'name': item['propertyLabel']},
-                 'object': {'id': item['value'], 'name': item['valueLabel'],
-                            'semanticGroup': ''},  # TODO: implement
-                 } for item in items]
-    datapage = sorted(datapage, key=lambda x: x['id'])
-    return datapage
+def query_statements(s, t=None, relations=None):
+    f = _query_statements(s, t, relations, "f")
+    r = _query_statements(s, t, relations, "r")
+    d = f + r
+    seen = set()
+    # de duplicate based on ids
+    d = [x for x in d if not (x['id'] in seen or seen.add(x['id']))]
+    d = sorted(d, key=lambda x: x['id'])
+    return d
+
+
+def _query_statements(s, t=None, relations=None, direction="f"):
+    """
+    if direction = f (forward), s is source, t is target
+    if direction = r (reverse), s and t are reversed
+    if t is not given, target is unconstrained
+    if relations is not given, relations are unconstrained
+    """
+    assert direction in {"f", "r"}, "direction must be 'f' or 'r'"
+    s = set(map(always_curie, s))
+    t = set(map(always_curie, t)) if t else set()
+    relations = set(map(always_curie, relations)) if relations else set()
+
+    s_str = " ".join(s)
+    t_str = " ".join(t)
+    r_str = " ".join(relations)
+
+    if direction == "r":
+        s_str, t_str = t_str, s_str
+
+    query_str = """
+    SELECT ?s ?sLabel ?r ?rLabel ?t ?tLabel ?id (GROUP_CONCAT(?stype) as ?stypes) (GROUP_CONCAT(?ttype) as ?ttypes) WHERE {{
+      {source_filter}
+      {target_filter}
+      {relation_filter}
+      ?s ?propertyclaim ?id .
+      ?r wikibase:claim ?propertyclaim .
+      ?id ?b ?t .
+      OPTIONAL {{?s wdt:P31 ?stype}}
+      OPTIONAL {{?t wdt:P31 ?ttype}}
+      FILTER(regex(str(?b), "http://www.wikidata.org/prop/statement" ))
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en" }}
+    }} GROUP BY ?s ?sLabel ?r ?rLabel ?t ?tLabel ?id"""
+    query_str = query_str.format(source_filter="values ?s {" + s_str + "}" if s_str else "",
+                                 target_filter="values ?t {" + t_str + "}" if t_str else "",
+                                 relation_filter="values ?r {" + r_str + "}" if r_str else "")
+    d = execute_sparql_query(query_str)['results']['bindings']
+    results = [{k: v['value'] for k, v in item.items()} for item in d]
+    # remove non item statements
+    results = [x for x in results if
+               "http://www.wikidata.org/entity/" in x['s'] and "http://www.wikidata.org/entity/" in x['t']]
+    for result in results:
+        result['s'] = result['s'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['r'] = result['r'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['t'] = result['t'].replace("http://www.wikidata.org/entity/", "wd:")
+        result['id'] = result['id'].replace("http://www.wikidata.org/entity/statement/", "wds:").replace("-", "$", 1)
+        sType = [x.replace("http://www.wikidata.org/entity/", "wd:") for x in result['stypes'].split(" ")] if result[
+            'stypes'] else []
+        tType = [x.replace("http://www.wikidata.org/entity/", "wd:") for x in result['ttypes'].split(" ")] if result[
+            'ttypes'] else []
+        result['sSemanticGroup'] = " ".join(get_semgroups_from_qids(sType)) if sType else ""
+        result['tSemanticGroup'] = " ".join(get_semgroups_from_qids(tType)) if tType else ""
+    results = [x for x in results if x['id'].startswith("wds:Q")]
+    data = [{'id': s['id'],
+             'subject': {'id': s['s'], 'name': s['sLabel'],
+                         'semanticGroup': s['sSemanticGroup']},
+             'predicate': {'id': s['r'], 'name': s['rLabel']},
+             'object': {'id': s['t'], 'name': s['tLabel'],
+                        'semanticGroup': s['tSemanticGroup']},
+             } for s in results]
+    #if direction == "r":
+    #    for d in data:
+    #        d['subject'], d['object'] = d['object'], d['subject']
+
+    return data
 
 
 def filter_statements(datapage, keywords=None, types=None):
@@ -354,14 +340,18 @@ def filter_statements(datapage, keywords=None, types=None):
         datapage = datapage2
 
     if types:
-        all_qids = frozenset([x['subject']['id'] for x in datapage] + [x['object']['id'] for x in datapage])
-        concepts = getConcepts(all_qids)
-        type_map = {k: v['semanticGroup'] for k, v in concepts.items()}
         datapage = [x for x in datapage if
-                    any(t in [type_map.get(x['subject']['id'], ''), type_map.get(x['object']['id'], '')] for t in
+                    any(t in x['subject']['semanticGroup'] + x['object']['semanticGroup'] for t in
                         types)]
 
     return datapage
+
+
+def query_and_filter_statements(s, t=None, relations=None, keywords=None, types=None):
+    # keywords matches all statements whose labels match ANY of the keywords
+    # types matches all statements whose subject or object type matches ANY of the types
+    datapage = query_statements(s, t, relations)
+    return filter_statements(datapage, keywords=keywords, types=types)
 
 
 def search_wikidata(keywords, semgroups=None, pageNumber=1, pageSize=10):

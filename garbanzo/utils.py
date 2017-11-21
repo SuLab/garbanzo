@@ -8,7 +8,7 @@ provenence map: https://github.com/monarch-initiative/dipper/blob/master/dipper/
 """
 from collections import defaultdict
 from itertools import chain
-
+from functools import wraps
 import requests
 
 
@@ -31,6 +31,7 @@ def always_qid(s):
     assert s.startswith("Q") or s.startswith("wd:"), s
     return s.replace("wd:", "") if s.startswith("wd:") else s
 
+
 # For future reference : https://github.com/monarch-initiative/SciGraph-docker-monarch-data/blob/master/src/main/resources/monarchLoadConfiguration.yaml.tmpl#L74
 
 # An item's type is the list of item it is an 'instance of', which can be anything
@@ -51,7 +52,7 @@ qid_label = {
     'Q14860489': 'molecular_function',
     'Q5058355': 'cellular_component',
 }
-label_qid = {v:k for k,v in qid_label.items()}
+label_qid = {v: k for k, v in qid_label.items()}
 
 qid_semgroup = {
     'Q12136': ['DISO'],
@@ -63,18 +64,19 @@ qid_semgroup = {
 }
 
 type_qid = defaultdict(set)
-for k,vs in qid_semgroup.items():
+for k, vs in qid_semgroup.items():
     vs = alwayslist(vs)
     for v in vs:
         type_qid[v].add(k)
 
-def get_types_from_qids(qids):
+
+def get_semgroups_from_qids(qids):
     qids = map(always_qid, qids)
     semgroups = list(set(chain(*[qid_semgroup[x] for x in qids if x in qid_semgroup])))
     return semgroups
 
 
-def get_qids_from_types(types):
+def get_qids_from_semgroups(types):
     qids = list(map(always_qid, set(chain(*[type_qid[x] for x in types if x in type_qid]))))
     return qids
 
@@ -100,3 +102,13 @@ def execute_sparql_query(query, prefix=None, endpoint='https://query.wikidata.or
     response = requests.get(endpoint, params=params, headers=headers)
     response.raise_for_status()
     return response.json()
+
+
+def make_frozenset(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        new_args = [frozenset(arg) if arg else None for arg in args]
+        new_kwargs = {k: frozenset(v) if v else None for k, v in kwargs.items()}
+        return f(*new_args, **new_kwargs)
+
+    return decorated_function
