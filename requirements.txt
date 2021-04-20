@@ -12,7 +12,7 @@ Jinja2==2.9.6
 jsonschema==2.6.0
 MarkupSafe==1.0
 pluggy==0.5.2
-py==1.4.34
+py==1.10.0
 PyYAML==3.12
 requests==2.18.4
 six==1.11.0
